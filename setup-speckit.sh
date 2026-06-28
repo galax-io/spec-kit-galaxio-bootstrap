@@ -1,0 +1,89 @@
+#!/usr/bin/env bash
+# Install spec-kit extensions and presets for a project.
+#
+# Native extensions (agent-context, bug, git) install by name from the catalog.
+# Community ones live in a discovery-only catalog (install_allowed: false), so
+# they install via --from <github-archive-url> and trigger an "Untrusted Source"
+# confirmation, which this script auto-answers (running it = you authorizing it).
+#
+# Requires the `specify` CLI on PATH (https://github.com/github/spec-kit).
+#
+# Usage:
+#   bash setup-speckit.sh            # additive: install what's missing, skip existing
+#   bash setup-speckit.sh --force    # reinstall extensions over existing (DANGER:
+#                                     # overwrites customized files; presets have no --force)
+
+set -euo pipefail
+
+command -v specify >/dev/null 2>&1 || {
+  echo "error: 'specify' CLI not found on PATH. Install spec-kit first." >&2; exit 2; }
+
+FORCE_FLAG=""
+[[ "${1:-}" == "--force" ]] && FORCE_FLAG="--force"
+
+# Mirror all output to a log so failures can be inspected after the fact.
+LOG="$(cd "$(dirname "$0")" && pwd)/speckit-install.log"
+exec > >(tee "$LOG") 2>&1
+
+# A single failed install must NOT abort the rest (set -e would otherwise kill the
+# script on the first ✗). Collect failures and report them at the end instead.
+FAILED=()
+
+run_ext() {     # id  <add-args...>
+  local id="$1"; shift
+  local out rc=0
+  # specify prompts "Untrusted Source — Continue? [y/N]" for external --from URLs.
+  # Auto-answer y so the script is non-interactive.
+  out=$(printf 'y\n' | specify extension add "$@" ${FORCE_FLAG} 2>&1) || rc=$?
+  if [[ $rc -eq 0 ]]; then
+    echo "  ✓  $id"
+  elif echo "$out" | grep -q "already installed"; then
+    echo "  –  $id (already installed; --force to reinstall)"
+  else
+    echo "  ✗  $id"; echo "$out" | sed 's/^/      /'; FAILED+=("$id")
+  fi
+}
+
+run_preset() {  # id  <add-args...>   (preset add has no --force)
+  local id="$1"; shift
+  local out rc=0
+  out=$(printf 'y\n' | specify preset add "$@" 2>&1) || rc=$?
+  if [[ $rc -eq 0 ]]; then
+    echo "  ✓  $id"
+  elif echo "$out" | grep -q "already installed"; then
+    echo "  –  $id (already installed)"
+  else
+    echo "  ✗  $id"; echo "$out" | sed 's/^/      /'; FAILED+=("$id")
+  fi
+}
+
+gh_zip() { echo "https://github.com/$1/archive/refs/tags/$2.zip"; }
+
+echo
+echo "==> Native extensions (catalog by name)"
+run_ext agent-context  agent-context
+run_ext bug            bug
+run_ext git            git
+
+echo
+echo "==> Community extensions (--from github archive)"
+run_ext worktrees  worktrees  --from "$(gh_zip dango85/spec-kit-worktree-parallel  v1.3.2)"
+run_ext harness    harness    --from "$(gh_zip formin/spec-kit-harness            v1.0.0)"
+run_ext spectest   spectest   --from "$(gh_zip Quratulain-bilal/spec-kit-spectest v1.0.0)"
+# changelog (Quratulain-bilal/spec-kit-changelog v1.0.0) DISABLED:
+# its extension.yml has an empty `requires:` block (no speckit_version), so
+# `specify` rejects it with "Validation Error: Missing requires.speckit_version".
+# Upstream bug — re-enable once the repo ships a fixed manifest.
+# run_ext changelog  changelog  --from "$(gh_zip Quratulain-bilal/spec-kit-changelog v1.0.0)"
+
+echo
+echo "==> Presets (--from github archive)"
+run_preset claude-ask-questions  claude-ask-questions \
+  --from "$(gh_zip 0xrafasec/spec-kit-preset-claude-ask-questions v1.0.0)"
+
+echo
+if [[ ${#FAILED[@]} -gt 0 ]]; then
+  echo "Done with FAILURES: ${FAILED[*]}"
+  exit 1
+fi
+echo "Done."
