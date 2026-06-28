@@ -1,8 +1,8 @@
-# spec-kit-bootstrap
+# spec-kit-galaxio-bootstrap
 
-Scratch template for spinning up a new project with our **standard development
-process already wired in** — spec-kit (extensions + presets), the issue↔PR↔milestone
-linkage gate, and a stack-agnostic `AGENTS.md`/`CLAUDE.md`.
+Galaxio's working scratch template for spinning up a new project with our
+**standard development process already wired in** — spec-kit (extensions + presets),
+the issue↔PR↔milestone linkage gate, and a stack-agnostic `AGENTS.md`/`CLAUDE.md`.
 
 The stack does not matter. The *process* is the same for every project, so this
 repo captures the process once and stamps it into any new project.
