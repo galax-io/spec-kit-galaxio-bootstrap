@@ -25,6 +25,21 @@ FORCE_FLAG=""
 LOG="$(cd "$(dirname "$0")" && pwd)/speckit-install.log"
 exec > >(tee "$LOG") 2>&1
 
+# Extensions/presets need a base spec-kit project (a .specify/ dir); without it
+# `specify extension add` fails with "Not a spec-kit project". If the base is
+# missing, lay it down first. Idempotent: skipped once .specify/ exists.
+#   --integration claude   this template targets Claude Code (.claude/, CLAUDE.md)
+#   --force                merge into the non-empty generated project, no prompt
+#   --ignore-agent-tools   init writes command/skill files even if the claude CLI
+#                          is absent (e.g. CI / copier post-gen)
+# init is additive: it preserves .claude/settings.json, hooks, and AGENTS.md, and
+# only appends a marker block to CLAUDE.md.
+if [[ ! -d .specify ]]; then
+  echo
+  echo "==> Base spec-kit not found — running 'specify init'"
+  specify init --here --integration claude --script sh --force --ignore-agent-tools
+fi
+
 # A single failed install must NOT abort the rest (set -e would otherwise kill the
 # script on the first ✗). Collect failures and report them at the end instead.
 FAILED=()
