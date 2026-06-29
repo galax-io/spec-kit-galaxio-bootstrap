@@ -105,6 +105,11 @@ commands:
     # verify      sbt scalafmtCheckAll compile test
     # build/test  sbt compile test
     # integration sbt it:test
+    {%- elif stack == 'jvm-gradle' -%}
+    # format      ./gradlew spotlessApply
+    # verify      ./gradlew check
+    # build/test  ./gradlew build
+    # integration ./gradlew integrationTest
     {%- elif stack == 'node' -%}
     # format      npm run format
     # verify      npm run lint && npm test
