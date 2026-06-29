@@ -1,0 +1,17 @@
+// {{ project_name }} — minimal Gradle (Kotlin DSL) stub (scaffold). Flesh out per project.
+plugins {
+    java
+    // TODO: `maven-publish`, language plugins (kotlin, scala), etc.
+}
+
+group = "{{ org_repo.split('/')[0] }}"
+version = "0.1.0-SNAPSHOT"
+
+repositories { mavenCentral() }
+
+dependencies {
+    testImplementation(platform("org.junit:junit-bom:5.10.2"))
+    testImplementation("org.junit.jupiter:junit-jupiter")
+}
+
+tasks.test { useJUnitPlatform() }

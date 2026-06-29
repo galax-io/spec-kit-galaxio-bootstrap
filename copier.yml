@@ -1,0 +1,172 @@
+# Copier template for the Galaxio spec-kit + process scaffold.
+#
+#   copier copy gh:galax-io/spec-kit-galaxio-bootstrap <target>
+#   cd <target> && copier update          # pull later template changes back in
+#
+# Tasks (spec-kit install + git init) need `copier copy --trust`.
+
+_min_copier_version: "9.0.0"
+_subdirectory: template
+_answers_file: .copier-answers.yml
+
+# ---------------------------------------------------------------------------
+# Project identity (was: bootstrap.sh --name / --tagline / --org)
+# ---------------------------------------------------------------------------
+project_name:
+  type: str
+  help: Project name (AGENTS.md title)
+
+project_tagline:
+  type: str
+  help: One-line description — what it is, who consumes it, what is compat-sensitive
+  default: "<one-line description of the project>"
+
+org_repo:
+  type: str
+  help: GitHub repo as owner/repo (milestone gh-api references)
+  default: "galax-io/<repo>"
+
+# ---------------------------------------------------------------------------
+# Stack — picking this pre-fills the cmd/manifest/publish answers below.
+# ---------------------------------------------------------------------------
+stack:
+  type: str
+  help: Primary stack (drives default build/test cmd, dep manifest, ignore list)
+  choices:
+    - scala-sbt
+    - jvm-gradle
+    - node
+    - python
+    - go
+    - generic
+  default: generic
+
+build_test_cmd:
+  type: str
+  help: Single command that must be green per commit (build + unit tests)
+  default: >-
+    {% if stack == 'scala-sbt' %}sbt compile test
+    {%- elif stack == 'jvm-gradle' %}./gradlew build
+    {%- elif stack == 'node' %}npm ci && npm test
+    {%- elif stack == 'python' %}pytest
+    {%- elif stack == 'go' %}go build ./... && go test ./...
+    {%- else %}TODO build+test cmd{% endif %}
+
+dep_manifest:
+  type: str
+  help: Dependency manifest = dependency truth
+  default: >-
+    {% if stack == 'scala-sbt' %}build.sbt
+    {%- elif stack == 'jvm-gradle' %}build.gradle.kts
+    {%- elif stack == 'node' %}package.json
+    {%- elif stack == 'python' %}pyproject.toml
+    {%- elif stack == 'go' %}go.mod
+    {%- else %}TODO dependency manifest{% endif %}
+
+publish_mechanism:
+  type: str
+  help: What the release workflow publishes to
+  default: >-
+    {% if stack == 'scala-sbt' %}sbt-ci-release → Sonatype/Maven Central
+    {%- elif stack == 'jvm-gradle' %}Gradle publish → Maven Central
+    {%- elif stack == 'node' %}npm publish → npm registry
+    {%- elif stack == 'python' %}PyPI (uv publish / twine)
+    {%- elif stack == 'go' %}Go module proxy (tag-based)
+    {%- else %}TODO publish mechanism{% endif %}
+
+release_notes_tool:
+  type: str
+  help: Tool that generates GitHub Release notes
+  default: git-cliff
+
+# ---------------------------------------------------------------------------
+# Project-section prose (bootstrap.sh left these as {{...}} TODO tokens).
+# Optional — skip to keep a TODO marker, or fill at scaffold time.
+# ---------------------------------------------------------------------------
+role:
+  type: str
+  multiline: true
+  help: Role line for the agent (Enter to keep a TODO marker)
+  default: "TODO Role — e.g. Principal Engineer: <langs/frameworks>, <domain>"
+
+stack_detail:
+  type: str
+  multiline: true
+  help: Stack detail line — languages, build tool, runtime, key libs, test frameworks
+  default: "TODO Stack detail — languages, build tool, runtime/target, key libraries, test frameworks"
+
+commands:
+  type: str
+  multiline: true
+  help: Command cheat-sheet body (goes inside a ```bash block)
+  default: |-
+    {% if stack == 'scala-sbt' -%}
+    # format      sbt scalafmtAll
+    # verify      sbt scalafmtCheckAll compile test
+    # build/test  sbt compile test
+    # integration sbt it:test
+    {%- elif stack == 'node' -%}
+    # format      npm run format
+    # verify      npm run lint && npm test
+    # build/test  npm ci && npm test
+    # integration npm run test:integration
+    {%- elif stack == 'python' -%}
+    # format      ruff format
+    # verify      ruff check && pytest
+    # build/test  pytest
+    # integration pytest -m integration
+    {%- elif stack == 'go' -%}
+    # format      gofmt -w .
+    # verify      go vet ./... && go test ./...
+    # build/test  go build ./... && go test ./...
+    # integration go test -tags=integration ./...
+    {%- else -%}
+    # TODO format / verify / build-test / integration commands
+    {%- endif %}
+
+structure:
+  type: str
+  multiline: true
+  help: One line per top-level module/dir
+  default: "TODO Structure — one line per top-level module/dir: what lives where"
+
+architecture:
+  type: str
+  multiline: true
+  help: Source-of-truth layer, facade/adapters, runtime-sensitive areas
+  default: "TODO Architecture — source-of-truth layer, facade/adapters, runtime-sensitive areas to review carefully"
+
+test_model:
+  type: str
+  multiline: true
+  help: Authoritative test doc, test-first policy, layers, coverage floor
+  default: "TODO Test Model — authoritative test doc, test-first policy, layers that apply, coverage floor"
+
+# ---------------------------------------------------------------------------
+# Post-generation tasks (was: bootstrap.sh --speckit / --git). Need --trust.
+# ---------------------------------------------------------------------------
+run_speckit:
+  type: bool
+  help: Run setup-speckit.sh now (needs `specify` CLI + network)
+  default: false
+
+do_git:
+  type: bool
+  help: git init + initial commit in the target
+  default: false
+
+_tasks:
+  - command: "bash setup-speckit.sh"
+    when: "{{ run_speckit }}"
+  - command: "git init -q && git add -A && git commit -q -m 'chore: scaffold project (spec-kit + process)'"
+    when: "{{ do_git }}"
+
+_message_after_copy: |
+  Scaffolded {{ project_name }} ({{ stack }}).
+
+  Next:
+    1. Fill any remaining TODO lines in AGENTS.md (Role / Stack / Commands / Structure / …).
+    2. If not run already: bash setup-speckit.sh
+    3. Create the GitHub repo {{ org_repo }} and its first milestone (vX.Y.0).
+
+  Later, to pull template/process updates back in:  copier update

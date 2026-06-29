@@ -1,0 +1,41 @@
+# OS / editor
+.DS_Store
+*.swp
+.idea/
+.vscode/
+
+# Claude Code local (keep settings.json + hooks tracked; ignore local/secret state)
+.claude/settings.local.json
+.claude/worktrees/
+
+# spec-kit scratch
+scratchpad-*.sh
+scratchpad-*.log
+
+# build output
+{% if stack == 'scala-sbt' -%}
+target/
+project/target/
+.bsp/
+{% elif stack == 'jvm-gradle' -%}
+.gradle/
+build/
+{% elif stack == 'node' -%}
+node_modules/
+dist/
+*.log
+{% elif stack == 'python' -%}
+__pycache__/
+*.py[cod]
+.venv/
+dist/
+*.egg-info/
+.pytest_cache/
+.ruff_cache/
+{% elif stack == 'go' -%}
+/bin/
+*.test
+*.out
+{% else -%}
+# extend per stack: target/, build/, dist/, node_modules/, etc.
+{% endif -%}
