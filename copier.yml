@@ -127,8 +127,8 @@ commands:
 structure:
   type: str
   multiline: true
-  help: One line per top-level module/dir
-  default: "TODO Structure — one line per top-level module/dir: what lives where"
+  help: Light "where to look" index for fast search — NOT a full tree
+  default: "TODO Structure — a light search index: only the few entry points an agent needs to locate code fast (e.g. `api/ -> HTTP handlers`, `core/ -> domain logic`). Keep it short; an exhaustive tree is noise."
 
 architecture:
   type: str
