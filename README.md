@@ -85,14 +85,15 @@ specs/  .specify/      # spec-kit working dirs
 | extension | `changelog`           | `jigarkhwar/spec-kit-changelog` v1.1.0   | changelog/release notes (fork — see below) |
 | preset    | `claude-ask-questions`| `0xrafasec/spec-kit-preset-claude-ask-questions`  | native AskUserQuestion picker for clarify/checklist |
 
-**Pinned to forks:** `spectest` and `changelog` ship upstream `v1.0.0` manifests that
-fail `specify`'s validator (spectest: commands not namespaced under the extension id;
-changelog: wrong `requires` key, hook missing `command`, bare-string commands). Fixes
-are filed upstream and `setup-speckit.sh` pins to our forks' `v1.1.0` tag
-until they merge:
-[spectest#2](https://github.com/Quratulain-bilal/spec-kit-spectest/pull/2),
-[changelog#3](https://github.com/Quratulain-bilal/spec-kit-changelog/pull/3).
-Repoint to `Quratulain-bilal` once a fixed upstream tag ships.
+**Maintained in our forks:** the original `Quratulain-bilal` `spectest`/`changelog`
+extensions were broken — their `v1.0.0` manifests fail `specify`'s validator
+(spectest: commands not namespaced under the extension id; changelog: wrong
+`requires` key, hook missing `command`, bare-string commands) and their commands
+read the spec from `.specify/spec.md` instead of `specs/<feature>/spec.md`. We
+maintain fixed copies in our own forks and pin to their `v1.1.0` tag — these are
+the canonical source for this template, not a temporary patch:
+[jigarkhwar/spec-kit-spectest](https://github.com/jigarkhwar/spec-kit-spectest),
+[jigarkhwar/spec-kit-changelog](https://github.com/jigarkhwar/spec-kit-changelog).
 
 ## Notes / gotchas (learned the hard way)
 
