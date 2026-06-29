@@ -28,6 +28,9 @@ Copier (Jinja2 templates) + bash. No compiled artifact — the deliverable is
 
 ## Structure
 
+<!-- A LIGHT search index, not a full tree. List only the entry points an agent needs
+     to FIND code fast — one terse line per area (`dir/ -> what lives there`). Omit
+     anything discoverable by looking; an exhaustive tree is noise and rots fast. -->
 - `copier.yml` — questions, stack-driven Jinja defaults, post-gen tasks
 - `template/` — render root (`_subdirectory`); `.jinja` files + verbatim scripts/hooks + per-stack stubs
 - `scripts/check-linkage.sh`, `.claude/hooks/linkage-guard.sh`, `setup-speckit.sh` — the verbatim sources
