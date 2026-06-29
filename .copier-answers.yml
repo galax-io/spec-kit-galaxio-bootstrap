@@ -1,0 +1,62 @@
+# Changes here will be overwritten by `copier update` — NEVER EDIT MANUALLY.
+# This file records the answers used to scaffold the project so the template
+# can be re-applied later.  Keep it committed.
+_commit: v0.1.0
+_src_path: gh:galax-io/spec-kit-galaxio-bootstrap
+architecture: '`copier.yml` defines the questions and Jinja defaults; `_subdirectory:
+    template` is the
+
+    render root. AGENTS.md/CLAUDE.md/.gitignore are templated; the linkage gate
+
+    (`scripts/check-linkage.sh` + `.claude/hooks/linkage-guard.sh`) and `setup-speckit.sh`
+
+    are copied byte-for-byte — never re-implemented. `.copier-answers.yml` records
+    the
+
+    answers so `copier update` can re-apply later template changes without clobbering
+    edits.'
+build_test_cmd: bash -n setup-speckit.sh scripts/check-linkage.sh .claude/hooks/linkage-guard.sh
+commands: '# lint    bash -n setup-speckit.sh scripts/check-linkage.sh .claude/hooks/linkage-guard.sh
+
+    # smoke   copier copy --trust --pretend --defaults --data project_name=X --data
+    org_repo=o/r . /tmp/out
+
+    # update  copier update --trust          # run inside a generated project
+
+    # speckit bash setup-speckit.sh          # install spec-kit extensions/presets'
+dep_manifest: copier.yml
+do_git: false
+org_repo: galax-io/spec-kit-galaxio-bootstrap
+project_name: spec-kit-galaxio-bootstrap
+project_tagline: Copier template that stamps Galaxio's standard dev process — spec-kit,
+    the issue↔PR↔milestone linkage gate, and a stack-agnostic AGENTS.md/CLAUDE.md
+    — into any new project.
+publish_mechanism: git tag vX.Y.Z, consumed via copier copy/update gh:galax-io/spec-kit-galaxio-bootstrap
+release_notes_tool: manual GitHub Release
+role: 'Maintainer of a stack-agnostic Copier project template. Prefer minimal, reversible
+
+    changes; keep generated output stable across every stack; never re-implement the
+
+    linkage-gate scripts or setup-speckit.sh — they are copied verbatim.'
+run_speckit: false
+stack: generic
+stack_detail: 'Copier (Jinja2 templates) + bash. No compiled artifact — the deliverable
+    is
+
+    `template/` rendered by `copier.yml`. Tooling: the `copier` CLI and `bash -n`.'
+structure: '- `copier.yml` — questions, stack-driven Jinja defaults, post-gen tasks
+
+    - `template/` — render root (`_subdirectory`); `.jinja` files + verbatim scripts/hooks
+    + per-stack stubs
+
+    - `scripts/check-linkage.sh`, `.claude/hooks/linkage-guard.sh`, `setup-speckit.sh`
+    — the verbatim sources
+
+    - `README.md` — Copier usage + spec-kit component table + gotchas'
+test_model: 'No unit tests. Validation = generate across every stack and assert no
+    stray `{{ }}`,
+
+    `bash -n` on all shell scripts, byte-equivalence of the verbatim files, and a
+
+    `copier update` round-trip that preserves user edits.'
+
