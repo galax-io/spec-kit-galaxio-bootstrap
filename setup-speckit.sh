@@ -84,13 +84,13 @@ echo
 echo "==> Community extensions (--from github archive)"
 run_ext worktrees  worktrees  --from "$(gh_zip dango85/spec-kit-worktree-parallel  v1.3.2)"
 run_ext harness    harness    --from "$(gh_zip formin/spec-kit-harness            v1.0.0)"
-# spectest + changelog: the upstream v1.0.0 manifests fail `specify`'s validator
-# (spectest: commands not namespaced under the extension id; changelog: bad
-# `requires` key, hook missing `command`, bare-string commands). Fixes are filed
-# upstream and pinned here to our forks' v1.1.0 tag until they merge:
-#   spectest:  https://github.com/Quratulain-bilal/spec-kit-spectest/pull/2
-#   changelog: https://github.com/Quratulain-bilal/spec-kit-changelog/pull/3
-# Repoint to Quratulain-bilal once a fixed upstream tag ships.
+# spectest + changelog: the original Quratulain-bilal v1.0.0 extensions are broken
+# (manifests fail `specify`'s validator, and commands read the spec from
+# .specify/spec.md instead of specs/<feature>/spec.md). We maintain fixed copies in
+# our own forks and pin to their v1.1.0 tag — these forks are the canonical source
+# for this template, not a temporary patch:
+#   https://github.com/jigarkhwar/spec-kit-spectest   (tag v1.1.0)
+#   https://github.com/jigarkhwar/spec-kit-changelog  (tag v1.1.0)
 run_ext spectest   spectest   --from "$(gh_zip jigarkhwar/spec-kit-spectest  v1.1.0)"
 run_ext changelog  changelog  --from "$(gh_zip jigarkhwar/spec-kit-changelog v1.1.0)"
 
