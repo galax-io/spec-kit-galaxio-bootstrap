@@ -81,13 +81,18 @@ specs/  .specify/      # spec-kit working dirs
 | extension | `git`                 | catalog (native)                                  | feature-branch workflow |
 | extension | `worktrees`           | `dango85/spec-kit-worktree-parallel` v1.3.2       | parallel git worktrees |
 | extension | `harness`             | `formin/spec-kit-harness` v1.0.0                  | research/verification harness |
-| extension | `spectest`            | `Quratulain-bilal/spec-kit-spectest` v1.0.0       | test generation |
+| extension | `spectest`            | `jigarkhwar/spec-kit-spectest` v1.0.0-galaxio.1    | test generation (fork — see below) |
+| extension | `changelog`           | `jigarkhwar/spec-kit-changelog` v1.0.0-galaxio.1   | changelog/release notes (fork — see below) |
 | preset    | `claude-ask-questions`| `0xrafasec/spec-kit-preset-claude-ask-questions`  | native AskUserQuestion picker for clarify/checklist |
 
-**Disabled:** `changelog` (`Quratulain-bilal/spec-kit-changelog`) — its `extension.yml`
-ships an empty `requires:` block (no `speckit_version`), so `specify` rejects it with
-`Validation Error: Missing requires.speckit_version` in every tag and on `main`.
-Re-enable in `setup-speckit.sh` once upstream fixes the manifest.
+**Pinned to forks:** `spectest` and `changelog` ship upstream `v1.0.0` manifests that
+fail `specify`'s validator (spectest: commands not namespaced under the extension id;
+changelog: wrong `requires` key, hook missing `command`, bare-string commands). Fixes
+are filed upstream and `setup-speckit.sh` pins to our forks' `v1.0.0-galaxio.1` tag
+until they merge:
+[spectest#2](https://github.com/Quratulain-bilal/spec-kit-spectest/pull/2),
+[changelog#3](https://github.com/Quratulain-bilal/spec-kit-changelog/pull/3).
+Repoint to `Quratulain-bilal` once a fixed upstream tag ships.
 
 ## Notes / gotchas (learned the hard way)
 

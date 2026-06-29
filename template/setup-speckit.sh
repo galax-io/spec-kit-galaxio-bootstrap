@@ -84,12 +84,15 @@ echo
 echo "==> Community extensions (--from github archive)"
 run_ext worktrees  worktrees  --from "$(gh_zip dango85/spec-kit-worktree-parallel  v1.3.2)"
 run_ext harness    harness    --from "$(gh_zip formin/spec-kit-harness            v1.0.0)"
-run_ext spectest   spectest   --from "$(gh_zip Quratulain-bilal/spec-kit-spectest v1.0.0)"
-# changelog (Quratulain-bilal/spec-kit-changelog v1.0.0) DISABLED:
-# its extension.yml has an empty `requires:` block (no speckit_version), so
-# `specify` rejects it with "Validation Error: Missing requires.speckit_version".
-# Upstream bug — re-enable once the repo ships a fixed manifest.
-# run_ext changelog  changelog  --from "$(gh_zip Quratulain-bilal/spec-kit-changelog v1.0.0)"
+# spectest + changelog: the upstream v1.0.0 manifests fail `specify`'s validator
+# (spectest: commands not namespaced under the extension id; changelog: bad
+# `requires` key, hook missing `command`, bare-string commands). Fixes are filed
+# upstream and pinned here to our forks' v1.0.0-galaxio.1 tag until they merge:
+#   spectest:  https://github.com/Quratulain-bilal/spec-kit-spectest/pull/2
+#   changelog: https://github.com/Quratulain-bilal/spec-kit-changelog/pull/3
+# Repoint to Quratulain-bilal once a fixed upstream tag ships.
+run_ext spectest   spectest   --from "$(gh_zip jigarkhwar/spec-kit-spectest  v1.0.0-galaxio.1)"
+run_ext changelog  changelog  --from "$(gh_zip jigarkhwar/spec-kit-changelog v1.0.0-galaxio.1)"
 
 echo
 echo "==> Presets (--from github archive)"
