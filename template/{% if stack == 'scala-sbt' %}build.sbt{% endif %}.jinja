@@ -1,0 +1,13 @@
+// {{ project_name }} — minimal sbt stub (scaffold). Flesh out per project.
+ThisBuild / organization := "com.example" // TODO: set reverse-DNS groupId (e.g. io.galaxio)
+ThisBuild / scalaVersion := "3.3.4"
+ThisBuild / version      := "0.1.0-SNAPSHOT"
+
+lazy val root = (project in file("."))
+  .settings(
+    name := "{{ project_name }}",
+    // TODO: libraryDependencies, test framework, sbt-ci-release / publish settings
+    libraryDependencies ++= Seq(
+      "org.scalameta" %% "munit" % "1.0.0" % Test
+    )
+  )

@@ -1,0 +1,13 @@
+[project]
+name = "{{ project_name|lower|replace(' ', '-') }}"
+version = "0.1.0"
+description = "{{ project_tagline }}"
+requires-python = ">=3.11"
+dependencies = []
+
+[dependency-groups]
+dev = ["pytest>=8"]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"

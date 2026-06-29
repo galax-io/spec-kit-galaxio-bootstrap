@@ -7,6 +7,55 @@ the issue↔PR↔milestone linkage gate, and a stack-agnostic `AGENTS.md`/`CLAUD
 The stack does not matter. The *process* is the same for every project, so this
 repo captures the process once and stamps it into any new project.
 
+## Usage
+
+Install Copier once (isolated, not into a project venv):
+
+```bash
+uv tool install copier        # or:  pipx install copier
+```
+
+Scaffold a new project:
+
+```bash
+copier copy --trust gh:galax-io/spec-kit-galaxio-bootstrap ~/code/my-new-project
+```
+
+- `--trust` is required because the template runs post-gen tasks (spec-kit install,
+  optional `git init`). Without it Copier refuses to run tasks.
+- Answer the prompts (or pass `--defaults --data key=value …` for non-interactive).
+- Picking `stack` (scala-sbt / jvm-gradle / node / python / go / generic) pre-fills
+  `build_test_cmd`, `dep_manifest`, `publish_mechanism`, the `.gitignore` build block,
+  and emits a minimal build-file stub. Every default is overridable.
+
+Pull later template/process changes into an already-scaffolded project:
+
+```bash
+cd ~/code/my-new-project
+copier update --trust
+```
+
+Copier 3-way-merges the new template version against your local edits using the
+`.copier-answers.yml` it dropped at scaffold time (keep that file committed). Your
+filled-in `AGENTS.md` sections survive; new process rules land.
+
+### Copier gotchas
+
+- **`--trust` is mandatory** for this template (it has `_tasks`). Dry-run without
+  side effects: add `--pretend`.
+- **Tasks are skippable** — `run_speckit` and `do_git` both default to `false`, so a
+  plain `copier copy` writes files only.
+- **Tasks re-run on `copier update`.** If you scaffolded with `do_git: true`, that
+  choice is saved in `.copier-answers.yml` and the `git init && git add && commit`
+  task fires again on every update (an extra auto-commit). Re-running `run_speckit`
+  is harmless (additive install). Leave both `false` and run `setup-speckit.sh` /
+  `git init` yourself if you want full control. The `do_git` task also needs a
+  configured git identity (`user.name` / `user.email`) or the commit step fails.
+- **A global git `post-checkout` hook that exits non-zero breaks Copier**, because
+  Copier clones the template and checks out a tag internally. If `copier copy gh:…`
+  dies on `git checkout`, that's the cause — fix the hook or run with a clean
+  `GIT_CONFIG_GLOBAL`.
+
 ## What you get in a scaffolded project
 
 ```
@@ -22,27 +71,6 @@ setup-speckit.sh       # installs spec-kit extensions + presets
 specs/  .specify/      # spec-kit working dirs
 .gitignore
 ```
-
-## Usage
-
-```bash
-# 1. scaffold a new project
-bash bootstrap.sh ~/code/my-new-project \
-  --org myorg/my-new-project \
-  --name "My New Project" \
-  --tagline "What it is and what is compatibility-sensitive." \
-  --git            # optional: git init + first commit
-  # --speckit      # optional: also install spec-kit now (needs `specify` CLI)
-
-# 2. fill the {{...}} placeholders above the '---' in AGENTS.md
-# 3. create the GitHub repo + first milestone (vX.Y.0)
-```
-
-`bootstrap.sh` substitutes `{{PROJECT_NAME}}`, `{{PROJECT_TAGLINE}}`, `{{ORG_REPO}}`
-automatically. The remaining `{{...}}` tokens (Role, Stack, Commands, Structure,
-Architecture, Test Model, plus `{{BUILD_TEST_CMD}}` / `{{DEP_MANIFEST}}` /
-`{{PUBLISH_MECHANISM}}` / `{{RELEASE_NOTES_TOOL}}` in the process section) are left
-as TODO for you to fill per stack.
 
 ## spec-kit components installed
 
