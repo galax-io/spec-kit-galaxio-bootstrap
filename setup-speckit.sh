@@ -87,12 +87,12 @@ run_ext harness    harness    --from "$(gh_zip formin/spec-kit-harness          
 # spectest + changelog: the upstream v1.0.0 manifests fail `specify`'s validator
 # (spectest: commands not namespaced under the extension id; changelog: bad
 # `requires` key, hook missing `command`, bare-string commands). Fixes are filed
-# upstream and pinned here to our forks' v1.0.0-galaxio.1 tag until they merge:
+# upstream and pinned here to our forks' v1.1.0 tag until they merge:
 #   spectest:  https://github.com/Quratulain-bilal/spec-kit-spectest/pull/2
 #   changelog: https://github.com/Quratulain-bilal/spec-kit-changelog/pull/3
 # Repoint to Quratulain-bilal once a fixed upstream tag ships.
-run_ext spectest   spectest   --from "$(gh_zip jigarkhwar/spec-kit-spectest  v1.0.0-galaxio.1)"
-run_ext changelog  changelog  --from "$(gh_zip jigarkhwar/spec-kit-changelog v1.0.0-galaxio.1)"
+run_ext spectest   spectest   --from "$(gh_zip jigarkhwar/spec-kit-spectest  v1.1.0)"
+run_ext changelog  changelog  --from "$(gh_zip jigarkhwar/spec-kit-changelog v1.1.0)"
 
 echo
 echo "==> Presets (--from github archive)"
