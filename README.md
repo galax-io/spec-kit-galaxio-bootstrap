@@ -82,7 +82,7 @@ specs/  .specify/      # spec-kit working dirs
 | extension | `worktrees`           | `dango85/spec-kit-worktree-parallel` v1.3.2       | parallel git worktrees |
 | extension | `harness`             | `formin/spec-kit-harness` v1.0.0                  | research/verification harness |
 | extension | `spectest`            | `jigarkhwar/spec-kit-spectest` v1.1.0    | test generation (fork — see below) |
-| extension | `changelog`           | `jigarkhwar/spec-kit-changelog` v1.1.0   | changelog/release notes (fork — see below) |
+| extension | `changelog`           | `jigarkhwar/spec-kit-changelog` v1.2.0   | changelog/release notes (fork — see below) |
 | preset    | `claude-ask-questions`| `0xrafasec/spec-kit-preset-claude-ask-questions`  | native AskUserQuestion picker for clarify/checklist |
 
 **Maintained in our forks:** the original `Quratulain-bilal` `spectest`/`changelog`
@@ -90,8 +90,8 @@ extensions were broken — their `v1.0.0` manifests fail `specify`'s validator
 (spectest: commands not namespaced under the extension id; changelog: wrong
 `requires` key, hook missing `command`, bare-string commands) and their commands
 read the spec from `.specify/spec.md` instead of `specs/<feature>/spec.md`. We
-maintain fixed copies in our own forks and pin to their `v1.1.0` tag — these are
-the canonical source for this template, not a temporary patch:
+maintain fixed copies in our own forks — these are the canonical source for this
+template, not a temporary patch (pin each fork to a working tag, bump on re-tag):
 [jigarkhwar/spec-kit-spectest](https://github.com/jigarkhwar/spec-kit-spectest),
 [jigarkhwar/spec-kit-changelog](https://github.com/jigarkhwar/spec-kit-changelog).
 
