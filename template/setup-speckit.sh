@@ -22,8 +22,14 @@ FORCE_FLAG=""
 [[ "${1:-}" == "--force" ]] && FORCE_FLAG="--force"
 
 # Mirror all output to a log so failures can be inspected after the fact.
+# Capture tee's PID and `wait` for it on exit — process-substitution is
+# backgrounded, so without the trap the script can return before tee
+# flushes its last buffered writes and its stdout can interleave with the
+# caller's prompt after exit.
 LOG="$(cd "$(dirname "$0")" && pwd)/speckit-install.log"
 exec > >(tee "$LOG") 2>&1
+TEE_PID=$!
+trap 'exec >&- 2>&-; wait "$TEE_PID" 2>/dev/null || true' EXIT
 
 # Extensions/presets need a base spec-kit project (a .specify/ dir); without it
 # `specify extension add` fails with "Not a spec-kit project". If the base is
@@ -87,12 +93,12 @@ run_ext harness    harness    --from "$(gh_zip formin/spec-kit-harness          
 # spectest + changelog: the original Quratulain-bilal v1.0.0 extensions are broken
 # (manifests fail `specify`'s validator, and commands read the spec from
 # .specify/spec.md instead of specs/<feature>/spec.md). We maintain fixed copies in
-# our own forks and pin to their v1.1.0 tag — these forks are the canonical source
-# for this template, not a temporary patch:
+# our own forks — these forks are the canonical source for this template, not a
+# temporary patch. Pinned tags below; bump when re-tagging a fork.
 #   https://github.com/jigarkhwar/spec-kit-spectest   (tag v1.1.0)
-#   https://github.com/jigarkhwar/spec-kit-changelog  (tag v1.1.0)
+#   https://github.com/jigarkhwar/spec-kit-changelog  (tag v1.2.0)
 run_ext spectest   spectest   --from "$(gh_zip jigarkhwar/spec-kit-spectest  v1.1.0)"
-run_ext changelog  changelog  --from "$(gh_zip jigarkhwar/spec-kit-changelog v1.1.0)"
+run_ext changelog  changelog  --from "$(gh_zip jigarkhwar/spec-kit-changelog v1.2.0)"
 
 echo
 echo "==> Presets (--from github archive)"
