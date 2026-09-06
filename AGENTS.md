@@ -20,7 +20,8 @@ Copier (Jinja2 templates) + bash. No compiled artifact — the deliverable is
 ## Commands
 
 ```bash
-# lint    bash -n setup-speckit.sh scripts/check-linkage.sh .claude/hooks/linkage-guard.sh
+# lint    bash -n setup-speckit.sh bootstrap.sh scripts/check-linkage.sh .claude/hooks/linkage-guard.sh .githooks/pre-push
+# test    for t in .claude/hooks/*_test.sh .githooks/*_test.sh; do bash "$t"; done
 # smoke   copier copy --trust --pretend --defaults --data project_name=X --data org_repo=o/r . /tmp/out
 # update  copier update --trust          # run inside a generated project
 # speckit bash setup-speckit.sh          # install spec-kit extensions/presets
@@ -33,7 +34,8 @@ Copier (Jinja2 templates) + bash. No compiled artifact — the deliverable is
      anything discoverable by looking; an exhaustive tree is noise and rots fast. -->
 - `copier.yml` — questions, stack-driven Jinja defaults, post-gen tasks
 - `template/` — render root (`_subdirectory`); `.jinja` files + verbatim scripts/hooks + per-stack stubs
-- `scripts/check-linkage.sh`, `.claude/hooks/linkage-guard.sh`, `setup-speckit.sh` — the verbatim sources
+- `scripts/check-linkage.sh`, `.claude/hooks/linkage-guard.sh`, `.githooks/pre-push`, `setup-speckit.sh` — the verbatim sources
+- `hooks/` — what `bootstrap.sh` copies; keep it byte-identical to `.claude/hooks/` and `.githooks/`
 - `README.md` — Copier usage + spec-kit component table + gotchas
 
 ## Architecture

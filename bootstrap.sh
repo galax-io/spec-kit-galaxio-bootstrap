@@ -7,7 +7,8 @@
 #   AGENTS.md             generic process (Boundaries/Milestones/Commits/Release) + project placeholders
 #   CLAUDE.md             -> @AGENTS.md
 #   .claude/settings.json PreToolUse hook wiring (linkage-guard)
-#   .claude/hooks/linkage-guard.sh
+#   .claude/hooks/linkage-guard.sh   + its suite — gates a release before the command runs
+#   .githooks/pre-push               + its suite — gates a push from any client
 #   scripts/check-linkage.sh
 #   setup-speckit.sh      spec-kit extension/preset installer
 #   specs/  .specify/     spec-kit working dirs
@@ -64,7 +65,7 @@ copy() {
   echo "  + $2"
 }
 
-mkdir -p "$TARGET/specs" "$TARGET/.specify" "$TARGET/.claude/hooks" "$TARGET/scripts"
+mkdir -p "$TARGET/specs" "$TARGET/.specify" "$TARGET/.claude/hooks" "$TARGET/.githooks" "$TARGET/scripts"
 
 # AGENTS.md with placeholder substitution (ORG_REPO / PROJECT_NAME / PROJECT_TAGLINE).
 agents_dst="$TARGET/AGENTS.md"
@@ -82,10 +83,24 @@ copy "$HERE/templates/CLAUDE.md"            "CLAUDE.md"
 copy "$HERE/templates/claude-settings.json" ".claude/settings.json"
 copy "$HERE/templates/gitignore"            ".gitignore"
 copy "$HERE/hooks/linkage-guard.sh"         ".claude/hooks/linkage-guard.sh"
+copy "$HERE/hooks/linkage-guard_test.sh"    ".claude/hooks/linkage-guard_test.sh"
+copy "$HERE/hooks/pre-push"                 ".githooks/pre-push"
+copy "$HERE/hooks/pre-push_test.sh"         ".githooks/pre-push_test.sh"
 copy "$HERE/scripts/check-linkage.sh"       "scripts/check-linkage.sh"
 copy "$HERE/setup-speckit.sh"               "setup-speckit.sh"
 
-chmod +x "$TARGET/.claude/hooks/linkage-guard.sh" "$TARGET/scripts/check-linkage.sh" "$TARGET/setup-speckit.sh" 2>/dev/null || true
+chmod +x "$TARGET/.claude/hooks/linkage-guard.sh" "$TARGET/.claude/hooks/linkage-guard_test.sh" \
+         "$TARGET/.githooks/pre-push" "$TARGET/.githooks/pre-push_test.sh" \
+         "$TARGET/scripts/check-linkage.sh" "$TARGET/setup-speckit.sh" 2>/dev/null || true
+# pre-push is inert until git is pointed at it, and that is per-clone config
+# rather than a file, so it cannot be scaffolded — say so instead of leaving a
+# hook nobody knows to enable.
+echo
+echo "==> One step left, once per clone:"
+echo "      git config core.hooksPath .githooks"
+echo "    Without it .githooks/pre-push never runs. The release workflow still"
+echo "    checks server-side either way; this is the local fast failure."
+
 # keep spec-kit dirs from being empty in git
 [ -e "$TARGET/specs/.gitkeep" ]    || : > "$TARGET/specs/.gitkeep"
 
