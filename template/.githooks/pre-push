@@ -25,6 +25,9 @@
 
 set -uo pipefail
 
+# Bypass a deliberate release: LINKAGE_OFF=1 git push ...
+[ "${LINKAGE_OFF:-}" = "1" ] && exit 0
+
 root=$(git rev-parse --show-toplevel 2>/dev/null) || exit 0
 checker="$root/scripts/check-linkage.sh"
 

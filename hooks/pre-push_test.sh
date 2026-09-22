@@ -118,5 +118,19 @@ else
   bad "the checker is asked about the tag being pushed" "asked: $(cat "$tmp/log")"
 fi
 
+# LINKAGE_OFF=1 bypasses the gate entirely, before the checker is ever asked —
+# the same escape hatch linkage-guard.sh already gives an in-session release.
+: > "$tmp/log"
+( cd "$repo" && CHECKER_LOG="$tmp/log" CHECKER_VERDICT=unready LINKAGE_OFF=1 \
+    bash "$hook" origin https://example.invalid/r.git \
+    <<< "refs/tags/v1.2.3 $sha refs/tags/v1.2.3 $zero" >/dev/null 2>&1 )
+rc=$?
+calls=$(wc -l < "$tmp/log" | tr -d ' ')
+if [ "$rc" = 0 ] && [ "$calls" = 0 ]; then
+  ok "LINKAGE_OFF=1 bypasses the gate without consulting the checker"
+else
+  bad "LINKAGE_OFF=1 bypasses the gate without consulting the checker" "rc=$rc calls=$calls"
+fi
+
 printf '\n%d passed, %d failed\n' "$pass" "$fail"
 [ "$fail" -eq 0 ]
