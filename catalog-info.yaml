@@ -1,0 +1,11 @@
+apiVersion: backstage.io/v1alpha1
+kind: Component
+metadata:
+  name: spec-kit-galaxio-bootstrap
+  description: Copier template that scaffolds Galaxio's spec-kit dev process (linkage gate, AGENTS.md/CLAUDE.md) into new projects
+  annotations:
+    github.com/project-slug: galax-io/spec-kit-galaxio-bootstrap
+spec:
+  type: tool
+  lifecycle: production
+  owner: galaxio
