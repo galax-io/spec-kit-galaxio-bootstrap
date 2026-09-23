@@ -65,12 +65,31 @@ CLAUDE.md              # -> @AGENTS.md
 .claude/
   settings.json        # PreToolUse(Bash) hook wiring
   hooks/linkage-guard.sh   # ~0-token gate: blocks release tagging unless linkage holds
+  agents/deep-researcher.md  # opus, read-only research + Codex second opinion
+  agents/infra-worker.md     # sonnet, mechanical [tier:light] changes
 scripts/
   check-linkage.sh     # verifies issue <-> PR <-> milestone contract (gh + jq)
 setup-speckit.sh       # installs spec-kit extensions + presets
 specs/  .specify/      # spec-kit working dirs
 .gitignore
 ```
+
+## Model tiers
+
+Work is routed by the reasoning it needs (see `AGENTS.md` → Agents & Models):
+deep work (research, specs, plans, verification) runs on `opus` / Codex
+`gpt-6-sol`; light work (task generation, mechanical infra, bookkeeping) on
+`sonnet` / Codex `gpt-6-luna`. `setup-speckit.sh` enforces it by writing a
+`model:` line into each installed spec-kit skill's frontmatter:
+
+| tier | skills |
+|---|---|
+| deep (`SPECKIT_DEEP_MODEL`, default `opus`) | specify, clarify, plan, analyze, checklist, constitution, converge, bug-assess, harness-explore, harness-verify, spectest-gaps, spectest-plan |
+| light (`SPECKIT_LIGHT_MODEL`, default `sonnet`) | tasks, taskstoissues, agent-context-update, git-*, changelog-*, worktrees-*, harness-init/status/report, spectest-coverage |
+| unpinned (session model) | implement, bug-fix, bug-test, spectest-generate — they dispatch per-task sub-agents by `[tier:*]` |
+
+Re-running the script re-pins (idempotent), so an existing project picks the
+tiers up with `copier update --trust` followed by `bash setup-speckit.sh`.
 
 ## spec-kit components installed
 
