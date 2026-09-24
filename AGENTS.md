@@ -85,7 +85,7 @@ Every piece of work is tied to a milestone. No exceptions unless explicitly told
 
 ## Agents & Models (ALWAYS)
 
-Route work by the reasoning it needs, not by habit; run independent work in parallel.
+Route work by the reasoning it needs, not by habit; parallelize only where agents would not rebuild the same context.
 
 | Tier | Claude | Codex | Work |
 |---|---|---|---|
@@ -94,7 +94,7 @@ Route work by the reasoning it needs, not by habit; run independent work in para
 
 - **Research is adversarial.** Deep research gets a second opinion from the other vendor (`deep-researcher` does this via `codex exec --sandbox read-only`). A claim only one model supports is unverified, not a fact.
 - **Every task carries its tier.** `tasks.md` lines add `[tier:deep]` or `[tier:light]` next to `[P]`; when unsure, it is deep.
-- **Parallelize what is independent.** `[P]` tasks touching disjoint files run as parallel sub-agents — `infra-worker` for `[tier:light]`, `deep-researcher` or the main session for `[tier:deep]`. Dependent tasks stay sequential.
+- **Parallelize by context, not by file.** Every sub-agent builds its own context from scratch, so agents that must read the same code, spec, or repository repeat that cost and leave integration work behind. `[tier:deep]` work that shares a context runs in one agent — the main session or a single deep sub-agent — task after task, even when `[P]` marks the tasks as parallelizable. Fan deep work out only where each agent's context differs: separate repositories, or subsystems an agent can learn without the others. `[tier:light]` mechanical work (`infra-worker`) may fan out freely. Dependent tasks stay sequential.
 - **Pinned, not remembered.** `setup-speckit.sh` pins spec-kit skills to their tier (override with `SPECKIT_DEEP_MODEL` / `SPECKIT_LIGHT_MODEL`); `.claude/agents/` defines the tiered sub-agents.
 
 ## Release Process (MANDATORY)
