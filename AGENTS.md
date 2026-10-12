@@ -95,24 +95,24 @@ Route work by the reasoning it needs, not by habit; parallelize only where agent
 | exceptional | — | `gpt-6-astra` (xhigh) | only when the maintainer names it for a task; no agent and not the engine chooses it |
 
 - **Newest only.**
-  - When a newer model of a class appears, this table and the engine's `src/workflow/models.ts` move to it in the same change.
+  - When a newer model of a class appears, this table and every pin of it move to it in the same change: `.claude/settings.json`, `.claude/agents/`, `setup-speckit.sh`, and any code that routes models.
   - Luna and Astra stay at 6 because Codex refuses `gpt-6.1-luna` and `gpt-6.1-astra` to a ChatGPT account.
   - `gpt-6.1-sol` needs Codex CLI 0.162 or later.
-  - Claude Code's own aliases and its background model are pinned to the table (`ANTHROPIC_DEFAULT_OPUS_MODEL`, `…_SONNET_MODEL`, `…_HAIKU_MODEL`, `ANTHROPIC_SMALL_FAST_MODEL`). Its `haiku` alias still means an older Haiku.
+  - Claude Code's own aliases and its background model are pinned to the table in `.claude/settings.json` (`env`: `ANTHROPIC_DEFAULT_OPUS_MODEL`, `…_SONNET_MODEL`, `…_HAIKU_MODEL`, `ANTHROPIC_SMALL_FAST_MODEL`). Without that pin its `haiku` alias means an older Haiku.
 - **Codex has no middle model.** Light work runs Sol on high effort, one less than deep; Luna is for trivial work only.
 - **Reviews are deep.** Every critic and reviewer runs at the deep tier, on the other vendor than the work it judges.
 - **Research is adversarial.** Deep research gets a second opinion from the other vendor (`deep-researcher` does this via `codex exec --sandbox read-only`). A claim only one model supports is unverified, not a fact.
-- **Every task carries its tier.** `tasks.md` lines add `[tier:deep]`, `[tier:light]` or `[tier:trivial]` next to `[P]`, and backlog issues carry the matching label. When unsure, it is deep.
+- **Every task carries its tier.** `tasks.md` lines add `[tier:deep]`, `[tier:light]` or `[tier:trivial]` next to `[P]`, and issues carry the matching `tier:*` label where the project labels them. When unsure, it is deep.
 - **Parallelize by context, not by file.**
   - Every sub-agent builds its own context from scratch. Agents that must read the same code, spec, or repository repeat that cost and leave integration work behind.
   - `[tier:deep]` work that shares a context runs in one agent, task after task: the main session or a single deep sub-agent. This holds even when `[P]` marks the tasks as parallelizable.
   - Fan deep work out only where each agent's context differs: separate repositories, or subsystems an agent can learn without the others.
-  - `[tier:light]` and `[tier:trivial]` mechanical work (`infra-worker`) may fan out freely.
+  - `[tier:light]` mechanical work (`infra-worker`) and `[tier:trivial]` work (`trivial-worker`) may fan out freely.
   - Dependent tasks stay sequential.
 - **Pinned, not remembered.**
   - `setup-speckit.sh` pins spec-kit skills to their tier; override with `SPECKIT_DEEP_MODEL` / `SPECKIT_LIGHT_MODEL`.
-  - `.claude/agents/` defines the tiered sub-agents.
-  - The engine routes runs by this table: a stage's `model` names its tier, and each harness runs its own vendor's model of that tier. A model outside the table is a plan error.
+  - `.claude/agents/` defines the tiered sub-agents, each with its tier's model and `effort`.
+  - Where a project routes models in code, it routes by this table: a task or stage names its tier, and each harness runs its own vendor's model of that tier. A model outside the table is an error.
 
 ## Release Process (MANDATORY)
 
