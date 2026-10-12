@@ -21,7 +21,7 @@ Copier (Jinja2 templates) + bash. No compiled artifact — the deliverable is
 
 ```bash
 # lint    bash -n setup-speckit.sh bootstrap.sh scripts/check-linkage.sh .claude/hooks/linkage-guard.sh .githooks/pre-push
-# test    for t in .claude/hooks/*_test.sh .githooks/*_test.sh; do bash "$t"; done
+# test    for t in .claude/hooks/*_test.sh .githooks/*_test.sh scripts/*_test.sh; do bash "$t"; done
 # smoke   copier copy --trust --pretend --defaults --data project_name=X --data org_repo=o/r . /tmp/out
 # update  copier update --trust          # run inside a generated project
 # speckit bash setup-speckit.sh          # install spec-kit extensions/presets
@@ -71,7 +71,7 @@ No unit tests. Validation = generate across every stack and assert no stray `{{ 
 Every piece of work is tied to a milestone. No exceptions unless explicitly told otherwise.
 
 - **Every PR** must be assigned to the active milestone before merging. No milestone = do not merge.
-- **Every issue** fixed by a PR must be closed when that PR lands on `main`. Do not leave completed issues open.
+- **Issues are for important tasks**, not technical ones. A PR that completes one writes `Closes owner/repo#N` (the issue closes when the PR lands on `main`); one PR of several writes `Part of owner/repo#N`. A linked issue carries the PR's milestone. A technical PR (sync, pins, docs, CI) needs no issue: its commit already records it.
 - **Spec work** (`specs/NNN-*/`) belongs to the milestone that owns the spec. Link the spec PR to the milestone immediately when creating it.
 - **Active milestone** = the lowest-numbered open milestone that matches the current spec/plan. Check `gh api repos/galax-io/spec-kit-galaxio-bootstrap/milestones` if unsure.
 

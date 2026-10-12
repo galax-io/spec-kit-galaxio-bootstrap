@@ -10,16 +10,20 @@ usage() {
 check-linkage.sh — verify the issue <-> PR <-> milestone contract (see AGENTS.md "Milestones (ALWAYS)").
 
 What each entity owes (this script enforces it):
-  Issue      belongs to exactly one milestone; closed only when its fix is on main.
-  PR         carries its issue's milestone + a real closing link (Closes #<issue>);
-             the linked issue sits in the same milestone; one issue per PR.
-  Milestone  one release (vX.Y.Z); tag only when every issue is closed and every PR merged.
+  Issue      an important task, not a technical one; belongs to exactly one milestone;
+             closed only when its fix is on main.
+  PR         carries a milestone. One that completes an important task links its
+             issue with a real closing link (Closes owner/repo#N); one PR of several
+             writes "Part of owner/repo#N". A linked issue sits in the PR's milestone.
+             A technical PR (sync, pins, docs, CI) links no issue: its commit is the record.
+  Milestone  one release (vX.Y.Z); tag only when every issue is closed, every PR that
+             links one is merged, and no PR is still open.
 
 Usage:
-  scripts/check-linkage.sh --pr <N>          # GATE one PR: milestone + Closes #issue + same milestone
+  scripts/check-linkage.sh --pr <N>          # GATE one PR: milestone + any linked issue in the same milestone
   scripts/check-linkage.sh --for-tag vX.Y.Z  # GATE a release: tag-readiness of that version's milestone
   scripts/check-linkage.sh [milestone]       # audit a milestone (default: lowest-numbered open)
-  scripts/check-linkage.sh --tag [ms]        # also assert tag-readiness (all issues closed, all PRs merged)
+  scripts/check-linkage.sh --tag [ms]        # also assert tag-readiness (issues closed, linked PRs merged, none open)
   scripts/check-linkage.sh --help
 
 Env:
@@ -54,26 +58,53 @@ while [ $# -gt 0 ]; do
   shift
 done
 
-# Gate one PR (the merge gate). Fails if the PR is missing a milestone, closes no
-# issue, or closes an issue in a different milestone. Strict: requires a registered
-# GitHub closing link (no body-text fallback — that lenient path is audit-mode only).
+# Issues may live in another repository (the SDLC backlog), so every reference is
+# owner/repo#N and is looked up in its own repository. A bare #N means this one.
+closing_refs() { # pr-json -> registered GitHub closing links
+  jq -r '.closingIssuesReferences[]? | "\(.repository.owner.login)/\(.repository.name)#\(.number)"' <<<"$1"
+}
+body_refs() { # pr-json, keyword regex -> "<keyword> [owner/repo]#N" links in the body
+  # The keyword starts a word, as GitHub reads it: "prefix #5" closes nothing.
+  jq -r '.body // ""' <<<"$1" \
+    | grep -oiE "(^|[^[:alnum:]_])($2) +([A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+)?#[0-9]+" \
+    | grep -oE '([A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+)?#[0-9]+' \
+    | sed "s|^#|$REPO#|" || true
+}
+issue_ms() { # owner/repo#N -> the issue's milestone title
+  gh issue view "${1##*#}" --repo "${1%#*}" --json milestone -q '.milestone.title // ""' 2>/dev/null || echo ""
+}
+PART_OF='part of'                       # one PR per repository of a multi-repository change
+CLOSES='close[sd]?|fix(e[sd])?|resolve[sd]?'
+
+# Gate one PR (the merge gate). Fails if the PR is missing a milestone or links an
+# issue in a different milestone. A PR that links no issue passes: a technical PR
+# needs none. A link is a registered GitHub closing link, or "Part of owner/repo#N"
+# for one PR of several. A Closes in the body that GitHub did not register still
+# fails — merging would not close that issue (the lenient text fallback is
+# audit-mode only).
 if [ -n "$PR_NUM" ]; then
-  pj=$(gh pr view "$PR_NUM" --repo "$REPO" --json number,title,state,milestone,closingIssuesReferences) \
+  pj=$(gh pr view "$PR_NUM" --repo "$REPO" --json number,title,state,milestone,closingIssuesReferences,body) \
     || { echo "error: PR #$PR_NUM not found in $REPO" >&2; exit 2; }
   p_title=$(jq -r '.title' <<<"$pj")
   p_ms=$(jq -r '.milestone.title // ""' <<<"$pj")
-  p_closes=$(jq -r '.closingIssuesReferences[]?.number' <<<"$pj")
+  p_closes=$(closing_refs "$pj")
+  [ -n "$p_closes" ] || p_closes=$(body_refs "$pj" "$PART_OF")
   e=0
   printf 'PR #%s  %s\n' "$PR_NUM" "$p_title"
   if [ -z "$p_ms" ]; then printf '  ✗ no milestone — assign one (gh pr edit %s --milestone "…")\n' "$PR_NUM"; e=1
   else printf '  ✓ milestone: %s\n' "$p_ms"; fi
   if [ -z "$p_closes" ]; then
-    printf '  ✗ closes no issue — add "Closes #<issue>" to the PR body\n'; e=1
+    p_text=$(body_refs "$pj" "$CLOSES")
+    if [ -n "$p_text" ]; then
+      printf '  ✗ the body closes %s, but GitHub registered no closing link, so merging would not close it — target the default branch, or write "Part of …"\n' "$(paste -sd, - <<<"$p_text")"; e=1
+    else
+      printf '  ✓ links no issue (a technical PR needs none)\n'
+    fi
   else
     for i in $p_closes; do
-      i_ms=$(gh issue view "$i" --repo "$REPO" --json milestone -q '.milestone.title // ""' 2>/dev/null || echo "")
-      if [ "$i_ms" = "$p_ms" ]; then printf '  ✓ closes #%s (same milestone)\n' "$i"
-      else printf '  ✗ closes #%s but its milestone is "%s", not "%s"\n' "$i" "${i_ms:-none}" "$p_ms"; e=1; fi
+      i_ms=$(issue_ms "$i")
+      if [ "$i_ms" = "$p_ms" ]; then printf '  ✓ links %s (same milestone)\n' "$i"
+      else printf '  ✗ links %s but its milestone is "%s", not "%s"\n' "$i" "${i_ms:-none}" "$p_ms"; e=1; fi
     done
   fi
   if [ "$e" = 0 ]; then printf 'PASS: PR #%s is well-formed.\n' "$PR_NUM"; exit 0; fi
@@ -128,32 +159,38 @@ for pr in $pr_numbers; do
   pr_state=$(jq -r '.state' <<<"$pr_json")
   pr_title=$(jq -r '.title' <<<"$pr_json")
 
-  # Real GitHub closing links, plus a text fallback for Closes/Fixes/Resolves #N in the body.
-  ref_nums=$(jq -r '.closingIssuesReferences[]?.number' <<<"$pr_json")
+  # Real GitHub closing links, else "Part of owner/repo#N", else a text fallback
+  # for Closes/Fixes/Resolves [owner/repo]#N in the body.
+  ref_nums=$(closing_refs "$pr_json")
+  [ -n "$ref_nums" ] || ref_nums=$(body_refs "$pr_json" "$PART_OF")
   if [ -z "$ref_nums" ]; then
-    ref_nums=$(jq -r '.body // ""' <<<"$pr_json" \
-      | grep -oiE '(close[sd]?|fix(e[sd])?|resolve[sd]?) +#[0-9]+' \
-      | grep -oE '[0-9]+' || true)
+    ref_nums=$(body_refs "$pr_json" "$CLOSES")
     [ -n "$ref_nums" ] && warn "PR #$pr links via body text only (not a registered GitHub closing link): $pr_title"
   fi
 
+  # A technical PR (sync, pins, docs, CI — a bot's too) links no issue and needs
+  # none. Before a tag it must still be merged or closed.
   if [ -z "$ref_nums" ]; then
-    err "PR #$pr ($pr_state) closes no issue — add 'Closes #<issue>': $pr_title"
+    if [ "$TAG_MODE" = 1 ] && [ "$pr_state" = OPEN ]; then
+      err "PR #$pr is OPEN — merge or close it before tagging: $pr_title"
+    else
+      ok "PR #$pr ($pr_state) → no issue (technical)"
+    fi
     continue
   fi
 
   for ri in $ref_nums; do
     linked_issues="$linked_issues$ri "
-    ri_ms=$(gh issue view "$ri" --repo "$REPO" --json milestone -q '.milestone.title // ""' 2>/dev/null || echo "")
+    ri_ms=$(issue_ms "$ri")
     if [ "$ri_ms" != "$ms_title" ]; then
-      err "PR #$pr closes issue #$ri but that issue's milestone is '${ri_ms:-none}', not '$ms_title'"
+      err "PR #$pr links issue $ri but that issue's milestone is '${ri_ms:-none}', not '$ms_title'"
     fi
   done
 
   if [ "$TAG_MODE" = 1 ] && [ "$pr_state" != "MERGED" ]; then
     err "PR #$pr is $pr_state — must be MERGED before tagging: $pr_title"
   else
-    ok "PR #$pr ($pr_state) → closes #$(echo "$ref_nums" | paste -sd, -)"
+    ok "PR #$pr ($pr_state) → $(echo "$ref_nums" | paste -sd, -)"
   fi
 done
 
@@ -164,7 +201,7 @@ fi
 for is in $issue_numbers; do
   is_state=$(jq -r --argjson n "$is" '.[] | select(.number == $n) | .state' <<<"$items")
   case "$linked_issues" in
-    *" $is "*) linked="linked" ;;
+    *" $REPO#$is "*) linked="linked" ;;
     *)         linked="" ;;
   esac
 
