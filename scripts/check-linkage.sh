@@ -63,47 +63,65 @@ done
 closing_refs() { # pr-json -> registered GitHub closing links
   jq -r '.closingIssuesReferences[]? | "\(.repository.owner.login)/\(.repository.name)#\(.number)"' <<<"$1"
 }
-body_refs() { # pr-json, keyword regex -> "<keyword> [owner/repo]#N" links in the body
-  # The keyword starts a word, as GitHub reads it: "prefix #5" closes nothing.
+body_refs() { # pr-json, regex of what precedes a link -> "[owner/repo]#N" links in the body
   jq -r '.body // ""' <<<"$1" \
-    | grep -oiE "(^|[^[:alnum:]_])($2) +([A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+)?#[0-9]+" \
-    | grep -oE '([A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+)?#[0-9]+' \
+    | grep -oiE "$2([A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+)?#[0-9]+" \
+    | grep -oE '([A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+)?#[0-9]+$' \
     | sed "s|^#|$REPO#|" || true
 }
 issue_ms() { # owner/repo#N -> the issue's milestone title
   gh issue view "${1##*#}" --repo "${1%#*}" --json milestone -q '.milestone.title // ""' 2>/dev/null || echo ""
 }
-PART_OF='part of'                       # one PR per repository of a multi-repository change
-CLOSES='close[sd]?|fix(e[sd])?|resolve[sd]?'
+pr_links() { # pr-json -> its issue links: registered closing links, else "Part of" lines
+  local refs
+  refs=$(closing_refs "$1")
+  [ -n "$refs" ] || refs=$(body_refs "$1" "$PART_OF")
+  printf '%s' "$refs"
+}
+# "Part of owner/repo#N" marks one PR per repository of a multi-repository change. It is
+# this project's convention, not a GitHub keyword, so it counts only at the start of a
+# line: prose such as "part of #190's follow-up" links nothing.
+PART_OF='^[[:space:]]*part of +'
+# GitHub's closing keywords start a word and may take a colon: "prefix #5" closes nothing.
+CLOSES='(^|[^[:alnum:]_])(close[sd]?|fix(e[sd])?|resolve[sd]?):? +'
 
 # Gate one PR (the merge gate). Fails if the PR is missing a milestone or links an
 # issue in a different milestone. A PR that links no issue passes: a technical PR
 # needs none. A link is a registered GitHub closing link, or "Part of owner/repo#N"
-# for one PR of several. A Closes in the body that GitHub did not register still
-# fails — merging would not close that issue (the lenient text fallback is
-# audit-mode only).
+# for one PR of several. A Closes in the body of a PR that does not target the
+# default branch still fails: GitHub links closing keywords only there, so merging
+# would not close that issue. On the default branch, a Closes GitHub did not link
+# names no issue (a pull request, say) and is not a link (the lenient text
+# fallback is audit-mode only).
 if [ -n "$PR_NUM" ]; then
-  pj=$(gh pr view "$PR_NUM" --repo "$REPO" --json number,title,state,milestone,closingIssuesReferences,body) \
+  pj=$(gh pr view "$PR_NUM" --repo "$REPO" --json number,title,state,milestone,closingIssuesReferences,body,baseRefName) \
     || { echo "error: PR #$PR_NUM not found in $REPO" >&2; exit 2; }
   p_title=$(jq -r '.title' <<<"$pj")
   p_ms=$(jq -r '.milestone.title // ""' <<<"$pj")
-  p_closes=$(closing_refs "$pj")
-  [ -n "$p_closes" ] || p_closes=$(body_refs "$pj" "$PART_OF")
+  p_links=$(pr_links "$pj")
   e=0
   printf 'PR #%s  %s\n' "$PR_NUM" "$p_title"
   if [ -z "$p_ms" ]; then printf '  ✗ no milestone — assign one (gh pr edit %s --milestone "…")\n' "$PR_NUM"; e=1
   else printf '  ✓ milestone: %s\n' "$p_ms"; fi
-  if [ -z "$p_closes" ]; then
+  if [ -z "$p_links" ]; then
     p_text=$(body_refs "$pj" "$CLOSES")
+    p_base=$(jq -r '.baseRefName' <<<"$pj")
+    default=$p_base
     if [ -n "$p_text" ]; then
-      printf '  ✗ the body closes %s, but GitHub registered no closing link, so merging would not close it — target the default branch, or write "Part of …"\n' "$(paste -sd, - <<<"$p_text")"; e=1
+      default=$(gh api "repos/$REPO" --jq '.default_branch') \
+        || { echo "error: cannot read the default branch of $REPO" >&2; exit 2; }
+    fi
+    if [ "$p_base" != "$default" ]; then
+      printf '  ✗ the body closes %s, but the PR targets %s, not %s, and GitHub links closing keywords only on the default branch, so merging would not close it — retarget the PR, or write "Part of …"\n' \
+        "$(paste -sd, - <<<"$p_text")" "$p_base" "$default"; e=1
     else
       printf '  ✓ links no issue (a technical PR needs none)\n'
     fi
   else
-    for i in $p_closes; do
+    for i in $p_links; do
       i_ms=$(issue_ms "$i")
-      if [ "$i_ms" = "$p_ms" ]; then printf '  ✓ links %s (same milestone)\n' "$i"
+      if [ -z "$p_ms" ]; then printf '  - links %s (its milestone is "%s")\n' "$i" "${i_ms:-none}"
+      elif [ "$i_ms" = "$p_ms" ]; then printf '  ✓ links %s (same milestone)\n' "$i"
       else printf '  ✗ links %s but its milestone is "%s", not "%s"\n' "$i" "${i_ms:-none}" "$p_ms"; e=1; fi
     done
   fi
@@ -159,10 +177,9 @@ for pr in $pr_numbers; do
   pr_state=$(jq -r '.state' <<<"$pr_json")
   pr_title=$(jq -r '.title' <<<"$pr_json")
 
-  # Real GitHub closing links, else "Part of owner/repo#N", else a text fallback
-  # for Closes/Fixes/Resolves [owner/repo]#N in the body.
-  ref_nums=$(closing_refs "$pr_json")
-  [ -n "$ref_nums" ] || ref_nums=$(body_refs "$pr_json" "$PART_OF")
+  # The PR's links, else a text fallback for Closes/Fixes/Resolves [owner/repo]#N
+  # in the body.
+  ref_nums=$(pr_links "$pr_json")
   if [ -z "$ref_nums" ]; then
     ref_nums=$(body_refs "$pr_json" "$CLOSES")
     [ -n "$ref_nums" ] && warn "PR #$pr links via body text only (not a registered GitHub closing link): $pr_title"
@@ -179,17 +196,19 @@ for pr in $pr_numbers; do
     continue
   fi
 
+  pr_ok=1
   for ri in $ref_nums; do
     linked_issues="$linked_issues$ri "
     ri_ms=$(issue_ms "$ri")
     if [ "$ri_ms" != "$ms_title" ]; then
       err "PR #$pr links issue $ri but that issue's milestone is '${ri_ms:-none}', not '$ms_title'"
+      pr_ok=0
     fi
   done
 
   if [ "$TAG_MODE" = 1 ] && [ "$pr_state" != "MERGED" ]; then
     err "PR #$pr is $pr_state — must be MERGED before tagging: $pr_title"
-  else
+  elif [ "$pr_ok" = 1 ]; then
     ok "PR #$pr ($pr_state) → $(echo "$ref_nums" | paste -sd, -)"
   fi
 done

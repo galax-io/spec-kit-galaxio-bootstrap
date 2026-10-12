@@ -65,6 +65,8 @@ case "$cmd" in
         echo '[{"number":8,"title":"v0.8.0"}]' | jq -r "${expr:-.}" ;;
       "repos/$REPO/milestones?state=all&per_page=100")
         echo '[{"number":7,"title":"v0.7.0"},{"number":8,"title":"v0.8.0"}]' ;;
+      "repos/$REPO")
+        echo '{"default_branch":"main"}' | jq -r "${expr:-.}" ;;
       "repos/$REPO/milestones/8")
         echo '{"title":"v0.8.0","state":"open"}' ;;
       "repos/$REPO/issues?milestone=8&state=all&per_page=100")
@@ -99,20 +101,20 @@ add_issue() { # number, state (open|closed) — an issue of this repository in v
   printf '{"number":%s,"state":"%s"}\n' "$1" "$2" >> "$fx/items.ndjson"
   issue_in "$REPO" "$1" v0.8.0
 }
-pr_json() { # number, state (OPEN|CLOSED|MERGED), closing link owner/repo#N or "", body, milestone title or ""
-  jq -nc --argjson n "$1" --arg state "$2" --arg link "$3" --arg body "$4" --arg ms "$5" '{
-    number: $n, title: "PR \($n)", state: $state, body: $body,
+pr_json() { # number, state (OPEN|CLOSED|MERGED), closing link owner/repo#N or "", body, milestone title or "", [base branch]
+  jq -nc --argjson n "$1" --arg state "$2" --arg link "$3" --arg body "$4" --arg ms "$5" --arg base "${6:-main}" '{
+    number: $n, title: "PR \($n)", state: $state, body: $body, baseRefName: $base,
     milestone: (if $ms == "" then null else {title: $ms} end),
     closingIssuesReferences: [$link | select(. != "")
       | capture("^(?<owner>[^/]+)/(?<name>[^#]+)#(?<n>[0-9]+)$")
       | {number: (.n | tonumber), repository: {name, owner: {login: .owner}}}]
   }' > "$fx/pr-$1.json"
 }
-add_pr() { # number, state, closing link or "" — a PR in v0.8.0 with an empty body
+add_pr() { # number, state, closing link or "", [body] — a PR in v0.8.0
   local rest=closed
   [ "$2" = OPEN ] && rest=open
   printf '{"number":%s,"state":"%s","pull_request":{}}\n' "$1" "$rest" >> "$fx/items.ndjson"
-  pr_json "$1" "$2" "$3" "" v0.8.0
+  pr_json "$1" "$2" "$3" "${4:-}" v0.8.0
 }
 run() { # the script's arguments; sets $out and $rc
   out="$(PATH="$bin:$PATH" REPO="$REPO" FIXTURES="$fx" bash "$script" "$@" 2>&1)"; rc=$?
@@ -142,6 +144,7 @@ issue_in "$REPO" 1 v0.7.0
 run
 check "audit: a link to an issue of another milestone fails the audit" $([ "$rc" -eq 1 ] && echo 0 || echo 1) "rc=$rc out=$out"
 check "audit: it names both milestones" $(has "links issue $REPO#1 but that issue's milestone is 'v0.7.0', not 'v0.8.0'" && echo 0 || echo 1) "out=$out"
+check "audit: the failing PR gets no ✓ line" $(! has '✓ PR #2' && echo 0 || echo 1) "out=$out"
 
 # 3. tag: everything is merged and closed, but a technical PR is still OPEN
 new_case tag-open
@@ -213,12 +216,14 @@ check "gate: Part of an issue in another repository passes" $([ "$rc" -eq 0 ] &&
 check "gate: the issue is looked up in its own repository" $(has "✓ links $BACKLOG#30 (same milestone)" && echo 0 || echo 1) "out=$out"
 check "gate: the script made only the calls the stub knows" $(only_known_calls && echo 0 || echo 1) "$(cat "$fx/unexpected.log" 2>&1)"
 
-# 11. gate: a Closes GitHub did not register would not close the issue — it fails
+# 11. gate: off the default branch GitHub links no Closes, so merging would not close
+#     the issue — it fails, the colon form too
 new_case gate-unregistered
-pr_json 3 OPEN "" "Closes $BACKLOG#30" v0.8.0
+pr_json 3 OPEN "" "Closes: $BACKLOG#30" v0.8.0 feat/stack
 run --pr 3
-check "gate: an unregistered Closes fails" $([ "$rc" -eq 1 ] && echo 0 || echo 1) "rc=$rc out=$out"
-check "gate: it says GitHub registered no closing link" $(has "✗ the body closes $BACKLOG#30, but GitHub registered no closing link" && echo 0 || echo 1) "out=$out"
+check "gate: a Closes off the default branch fails" $([ "$rc" -eq 1 ] && echo 0 || echo 1) "rc=$rc out=$out"
+check "gate: it names the base branch and the default one" $(has "✗ the body closes $BACKLOG#30, but the PR targets feat/stack, not main" && echo 0 || echo 1) "out=$out"
+check "gate: the script made only the calls the stub knows" $(only_known_calls && echo 0 || echo 1) "$(cat "$fx/unexpected.log" 2>&1)"
 
 # 12. gate: a keyword inside another word is not a link
 new_case gate-inside-word
@@ -226,6 +231,49 @@ pr_json 3 OPEN "" "Drops the prefix #5 and the counterpart of #6." v0.8.0
 run --pr 3
 check "gate: \"prefix #5\" and \"counterpart of #6\" are not links" $([ "$rc" -eq 0 ] && echo 0 || echo 1) "rc=$rc out=$out"
 check "gate: the PR counts as technical" $(has '✓ links no issue' && echo 0 || echo 1) "out=$out"
+
+# 13. gate: on the default branch, a Closes GitHub did not link names no issue
+#     (here a pull request) — the PR is technical
+new_case gate-closes-pr
+pr_json 3 OPEN "" "Fixes #190's typo." v0.8.0
+run --pr 3
+check "gate: an unlinked Fixes on the default branch passes" $([ "$rc" -eq 0 ] && echo 0 || echo 1) "rc=$rc out=$out"
+check "gate: the PR counts as technical" $(has '✓ links no issue' && echo 0 || echo 1) "out=$out"
+
+# 14. gate: "part of" in prose is not the Part of convention
+new_case gate-prose-part-of
+pr_json 3 OPEN "" "Small cleanup that is part of #190's follow-up." v0.8.0
+run --pr 3
+check "gate: \"part of #190\" in prose is not a link" $([ "$rc" -eq 0 ] && echo 0 || echo 1) "rc=$rc out=$out"
+check "gate: no issue is looked up" $(only_known_calls && echo 0 || echo 1) "$(cat "$fx/unexpected.log" 2>&1)"
+
+# 15. gate: a registered closing link to an issue in another repository
+new_case gate-closes-backlog
+pr_json 3 OPEN "$BACKLOG#30" "Closes $BACKLOG#30" v0.8.0
+issue_in "$BACKLOG" 30 v0.8.0
+run --pr 3
+check "gate: closing an issue in another repository passes" $([ "$rc" -eq 0 ] && echo 0 || echo 1) "rc=$rc out=$out"
+check "gate: the issue is looked up in its own repository" $(has "✓ links $BACKLOG#30 (same milestone)" && echo 0 || echo 1) "out=$out"
+
+# 16. gate: without a milestone, a linked issue is not "the same milestone"
+new_case gate-no-milestone-link
+pr_json 3 OPEN "$REPO#1" "Closes #1" ""
+issue_in "$REPO" 1 ""
+run --pr 3
+check "gate: a PR without a milestone still fails" $([ "$rc" -eq 1 ] && echo 0 || echo 1) "rc=$rc out=$out"
+check "gate: the link gets no ✓" $(! has '✓ links' && has "- links $REPO#1" && echo 0 || echo 1) "out=$out"
+
+# 17. audit: a Closes in the body that GitHub did not register is a warning, and
+#     the issue still counts as linked; "part of" in prose links nothing
+new_case audit-text
+add_issue 1 open
+add_pr 2 OPEN "" "Closes #1"
+add_pr 3 OPEN "" "Small cleanup that is part of #190's follow-up."
+run
+check "audit: an unregistered Closes does not fail the audit" $([ "$rc" -eq 0 ] && echo 0 || echo 1) "rc=$rc out=$out"
+check "audit: it is reported as a warning" $(has '! PR #2 links via body text only' && echo 0 || echo 1) "out=$out"
+check "audit: the issue counts as linked" $(has '✓ issue #1 (open) ← linked' && echo 0 || echo 1) "out=$out"
+check "audit: prose \"part of\" leaves the PR technical" $(has '✓ PR #3 (OPEN) → no issue (technical)' && echo 0 || echo 1) "out=$out"
 
 printf '\n%d passed, %d failed\n' "$pass" "$fail"
 [ "$fail" -eq 0 ]
