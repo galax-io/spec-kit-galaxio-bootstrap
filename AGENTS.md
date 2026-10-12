@@ -21,7 +21,7 @@ Copier (Jinja2 templates) + bash. No compiled artifact — the deliverable is
 
 ```bash
 # lint    bash -n setup-speckit.sh bootstrap.sh scripts/check-linkage.sh .claude/hooks/linkage-guard.sh .githooks/pre-push
-# test    for t in .claude/hooks/*_test.sh .githooks/*_test.sh scripts/*_test.sh; do bash "$t"; done
+# test    rc=0; for t in .claude/hooks/*_test.sh .githooks/*_test.sh scripts/*_test.sh; do bash "$t" || rc=1; done; [ "$rc" = 0 ]
 # smoke   copier copy --trust --pretend --defaults --data project_name=X --data org_repo=o/r . /tmp/out
 # update  copier update --trust          # run inside a generated project
 # speckit bash setup-speckit.sh          # install spec-kit extensions/presets
