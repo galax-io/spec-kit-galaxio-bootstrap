@@ -85,17 +85,34 @@ Every piece of work is tied to a milestone. No exceptions unless explicitly told
 
 ## Agents & Models (ALWAYS)
 
-Route work by the reasoning it needs, not by habit; parallelize only where agents would not rebuild the same context.
+Route work by the reasoning it needs, not by habit; parallelize only where agents would not rebuild the same context. Every model is the newest of its class that the accounts can run; an older one is never used.
 
-| Tier | Claude | Codex | Work |
+| Tier | Claude (effort) | Codex (effort) | Work |
 |---|---|---|---|
-| deep | `opus` | `gpt-6-sol` | research, root-cause analysis, specs/plans, architecture, review, verification |
-| light | `sonnet` | `gpt-6-luna` | task/issue generation, mechanical infra (CI config, version pins, renames, doc fixes), bookkeeping |
+| deep | `claude-opus-5-5` (xhigh) | `gpt-6.1-sol` (xhigh) | complex code, review and verification (every critic), research, root-cause analysis, specs/plans, architecture |
+| light | `claude-sonnet-5-5` (high) | `gpt-6.1-sol` (high) | simpler work a plan already spells out: task/issue generation, mechanical infra (CI config, version pins, renames, doc fixes) |
+| trivial | `claude-haiku-5-5` (medium) | `gpt-6-luna` (medium) | very simple edits, gathering context, finding files, bookkeeping |
+| exceptional | — | `gpt-6-astra` (xhigh) | only when the maintainer names it for a task; no agent and not the engine chooses it |
 
+- **Newest only.**
+  - When a newer model of a class appears, this table and every pin of it move to it in the same change: `.claude/settings.json`, `.claude/agents/`, `setup-speckit.sh`, and any code that routes models.
+  - Luna and Astra stay at 6 because Codex refuses `gpt-6.1-luna` and `gpt-6.1-astra` to a ChatGPT account.
+  - `gpt-6.1-sol` needs Codex CLI 0.162 or later.
+  - Claude Code's own aliases and its background model are pinned to the table in `.claude/settings.json` (`env`: `ANTHROPIC_DEFAULT_OPUS_MODEL`, `…_SONNET_MODEL`, `…_HAIKU_MODEL`, `ANTHROPIC_SMALL_FAST_MODEL`). Without that pin its `haiku` alias means an older Haiku.
+- **Codex has no middle model.** Light work runs Sol on high effort, one less than deep; Luna is for trivial work only.
+- **Reviews are deep.** Every critic and reviewer runs at the deep tier, on the other vendor than the work it judges.
 - **Research is adversarial.** Deep research gets a second opinion from the other vendor (`deep-researcher` does this via `codex exec --sandbox read-only`). A claim only one model supports is unverified, not a fact.
-- **Every task carries its tier.** `tasks.md` lines add `[tier:deep]` or `[tier:light]` next to `[P]`; when unsure, it is deep.
-- **Parallelize by context, not by file.** Every sub-agent builds its own context from scratch, so agents that must read the same code, spec, or repository repeat that cost and leave integration work behind. `[tier:deep]` work that shares a context runs in one agent — the main session or a single deep sub-agent — task after task, even when `[P]` marks the tasks as parallelizable. Fan deep work out only where each agent's context differs: separate repositories, or subsystems an agent can learn without the others. `[tier:light]` mechanical work (`infra-worker`) may fan out freely. Dependent tasks stay sequential.
-- **Pinned, not remembered.** `setup-speckit.sh` pins spec-kit skills to their tier (override with `SPECKIT_DEEP_MODEL` / `SPECKIT_LIGHT_MODEL`); `.claude/agents/` defines the tiered sub-agents.
+- **Every task carries its tier.** `tasks.md` lines add `[tier:deep]`, `[tier:light]` or `[tier:trivial]` next to `[P]`, and issues carry the matching `tier:*` label where the project labels them. When unsure, it is deep.
+- **Parallelize by context, not by file.**
+  - Every sub-agent builds its own context from scratch. Agents that must read the same code, spec, or repository repeat that cost and leave integration work behind.
+  - `[tier:deep]` work that shares a context runs in one agent, task after task: the main session or a single deep sub-agent. This holds even when `[P]` marks the tasks as parallelizable.
+  - Fan deep work out only where each agent's context differs: separate repositories, or subsystems an agent can learn without the others.
+  - `[tier:light]` mechanical work (`infra-worker`) and `[tier:trivial]` work (`trivial-worker`) may fan out freely.
+  - Dependent tasks stay sequential.
+- **Pinned, not remembered.**
+  - `setup-speckit.sh` pins spec-kit skills to their tier; override with `SPECKIT_DEEP_MODEL` / `SPECKIT_LIGHT_MODEL`.
+  - `.claude/agents/` defines the tiered sub-agents, each with its tier's model and `effort`.
+  - Where a project routes models in code, it routes by this table: a task or stage names its tier, and each harness runs its own vendor's model of that tier. A model outside the table is an error.
 
 ## Release Process (MANDATORY)
 

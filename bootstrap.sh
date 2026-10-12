@@ -11,6 +11,7 @@
 #   .githooks/pre-push               + its suite — gates a push from any client
 #   scripts/check-linkage.sh
 #   setup-speckit.sh      spec-kit extension/preset installer
+#   .claude/agents/       tiered sub-agents (deep-researcher, infra-worker, trivial-worker)
 #   specs/  .specify/     spec-kit working dirs
 #   .gitignore
 #
@@ -88,6 +89,9 @@ copy "$HERE/hooks/pre-push"                 ".githooks/pre-push"
 copy "$HERE/hooks/pre-push_test.sh"         ".githooks/pre-push_test.sh"
 copy "$HERE/scripts/check-linkage.sh"       "scripts/check-linkage.sh"
 copy "$HERE/setup-speckit.sh"               "setup-speckit.sh"
+copy "$HERE/.claude/agents/deep-researcher.md" ".claude/agents/deep-researcher.md"
+copy "$HERE/.claude/agents/infra-worker.md"    ".claude/agents/infra-worker.md"
+copy "$HERE/.claude/agents/trivial-worker.md"  ".claude/agents/trivial-worker.md"
 
 chmod +x "$TARGET/.claude/hooks/linkage-guard.sh" "$TARGET/.claude/hooks/linkage-guard_test.sh" \
          "$TARGET/.githooks/pre-push" "$TARGET/.githooks/pre-push_test.sh" \

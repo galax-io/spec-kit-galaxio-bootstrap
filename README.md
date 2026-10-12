@@ -63,10 +63,11 @@ AGENTS.md              # process (Boundaries / Milestones / Commits & PRs / Rele
                        #   + project placeholders (Role / Stack / Commands / Structure / …)
 CLAUDE.md              # -> @AGENTS.md
 .claude/
-  settings.json        # PreToolUse(Bash) hook wiring
+  settings.json        # PreToolUse(Bash) hook wiring + model alias pins (env)
   hooks/linkage-guard.sh   # ~0-token gate: blocks release tagging unless linkage holds
-  agents/deep-researcher.md  # opus, read-only research + Codex second opinion
-  agents/infra-worker.md     # sonnet, mechanical [tier:light] changes
+  agents/deep-researcher.md  # opus at xhigh, read-only research + Codex second opinion
+  agents/infra-worker.md     # sonnet at high, mechanical [tier:light] changes
+  agents/trivial-worker.md   # claude-haiku-5-5 at medium, very simple [tier:trivial] work
 scripts/
   check-linkage.sh     # verifies issue <-> PR <-> milestone contract (gh + jq)
 setup-speckit.sh       # installs spec-kit extensions + presets
@@ -76,11 +77,17 @@ specs/  .specify/      # spec-kit working dirs
 
 ## Model tiers
 
-Work is routed by the reasoning it needs (see `AGENTS.md` → Agents & Models):
-deep work (research, specs, plans, verification) runs on `opus` / Codex
-`gpt-6-sol`; light work (task generation, mechanical infra, bookkeeping) on
-`sonnet` / Codex `gpt-6-luna`. `setup-speckit.sh` enforces it by writing a
-`model:` line into each installed spec-kit skill's frontmatter:
+Work is routed by the reasoning it needs (see `AGENTS.md` → Agents & Models),
+always on the newest model of each class: deep work (complex code, reviews,
+research, specs, plans) runs on `claude-opus-5-5` / Codex `gpt-6.1-sol` at
+xhigh effort; light work (task generation, mechanical infra) on
+`claude-sonnet-5-5` / Codex `gpt-6.1-sol` at high effort; trivial work
+(simple edits, context, bookkeeping) on `claude-haiku-5-5` / Codex
+`gpt-6-luna` at medium effort. `.claude/settings.json` pins Claude Code's
+`opus` / `sonnet` / `haiku` aliases to those models, and each sub-agent in
+`.claude/agents/` carries its tier's model and effort. `setup-speckit.sh`
+writes the deep or light alias as a `model:` line into each installed
+spec-kit skill's frontmatter (the model only, not the effort):
 
 | tier | skills |
 |---|---|
