@@ -9,7 +9,7 @@
 #   .claude/settings.json PreToolUse hook wiring (linkage-guard)
 #   .claude/hooks/linkage-guard.sh   + its suite — gates a release before the command runs
 #   .githooks/pre-push               + its suite — gates a push from any client
-#   scripts/check-linkage.sh
+#   scripts/check-linkage.sh         + its suite — the issue <-> PR <-> milestone check
 #   setup-speckit.sh      spec-kit extension/preset installer
 #   specs/  .specify/     spec-kit working dirs
 #   .gitignore
@@ -87,11 +87,13 @@ copy "$HERE/hooks/linkage-guard_test.sh"    ".claude/hooks/linkage-guard_test.sh
 copy "$HERE/hooks/pre-push"                 ".githooks/pre-push"
 copy "$HERE/hooks/pre-push_test.sh"         ".githooks/pre-push_test.sh"
 copy "$HERE/scripts/check-linkage.sh"       "scripts/check-linkage.sh"
+copy "$HERE/scripts/check-linkage_test.sh"  "scripts/check-linkage_test.sh"
 copy "$HERE/setup-speckit.sh"               "setup-speckit.sh"
 
 chmod +x "$TARGET/.claude/hooks/linkage-guard.sh" "$TARGET/.claude/hooks/linkage-guard_test.sh" \
          "$TARGET/.githooks/pre-push" "$TARGET/.githooks/pre-push_test.sh" \
-         "$TARGET/scripts/check-linkage.sh" "$TARGET/setup-speckit.sh" 2>/dev/null || true
+         "$TARGET/scripts/check-linkage.sh" "$TARGET/scripts/check-linkage_test.sh" \
+         "$TARGET/setup-speckit.sh" 2>/dev/null || true
 # pre-push is inert until git is pointed at it, and that is per-clone config
 # rather than a file, so it cannot be scaffolded — say so instead of leaving a
 # hook nobody knows to enable.
