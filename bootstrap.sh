@@ -104,8 +104,8 @@ chmod +x "$TARGET/.claude/hooks/linkage-guard.sh" "$TARGET/.claude/hooks/linkage
 echo
 echo "==> One step left, once per clone:"
 echo "      git config core.hooksPath .githooks"
-echo "    Without it .githooks/pre-push never runs. The release workflow still"
-echo "    checks server-side either way; this is the local fast failure."
+echo "    Without it .githooks/pre-push never runs, and nothing server-side checks"
+echo "    the release unless your release workflow runs scripts/check-linkage.sh."
 
 # keep spec-kit dirs from being empty in git
 [ -e "$TARGET/specs/.gitkeep" ]    || : > "$TARGET/specs/.gitkeep"
