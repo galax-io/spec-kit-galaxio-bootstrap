@@ -157,6 +157,27 @@ check "differs: the file is untouched" $([ "$(cat "$repo/scripts/check-linkage.s
 check "differs: it is reported as kept and different" $(has 'kept: scripts/check-linkage.sh (differs from the template)' && echo 0 || echo 1) "out=$out"
 check "differs: the other missing files are still added" $([ -f "$repo/.githooks/pre-push" ] && echo 0 || echo 1) "out=$out"
 
+# 7b. a test belongs to its script: when the script exists and differs from the template,
+#     the template's test for it is not added (it would test behaviour the script lacks)
+new_repo test-follows-script
+write AGENTS.md $'# Mine\n\n## Commits & PRs\n'
+write scripts/check-linkage.sh $'#!/usr/bin/env bash\n# my own, ahead of the template\n'
+run "$repo"
+check "test-follows-script: the template's test is not added next to a different script" $([ ! -e "$repo/scripts/check-linkage_test.sh" ] && echo 0 || echo 1) "out=$out"
+check "test-follows-script: it says why" $(has 'skipped: scripts/check-linkage_test.sh (its script differs from the template)' && echo 0 || echo 1) "out=$out"
+check "test-follows-script: the other tests are still added" $([ -f "$repo/.githooks/pre-push_test.sh" ] && [ -f "$repo/.claude/hooks/linkage-guard_test.sh" ] && echo 0 || echo 1) "out=$out"
+new_repo test-follows-same
+write AGENTS.md $'# Mine\n\n## Commits & PRs\n'
+mkdir -p "$repo/scripts"; cp "$tpl/scripts/check-linkage.sh" "$repo/scripts/check-linkage.sh"
+run "$repo"
+check "test-follows-same: next to an identical script the test is added" $([ -f "$repo/scripts/check-linkage_test.sh" ] && echo 0 || echo 1) "out=$out"
+new_repo test-own
+write AGENTS.md $'# Mine\n\n## Commits & PRs\n'
+write scripts/check-linkage.sh $'#!/usr/bin/env bash\n# my own\n'
+write scripts/check-linkage_test.sh $'#!/usr/bin/env bash\n# my own test\n'
+run "$repo"
+check "test-own: a test the repository has is kept, whatever the script" $([ "$(cat "$repo/scripts/check-linkage_test.sh")" = $'#!/usr/bin/env bash\n# my own test' ] && has 'kept: scripts/check-linkage_test.sh (differs from the template)' && echo 0 || echo 1) "out=$out"
+
 # 8. a file identical to the template is reported as the same
 new_repo same
 write AGENTS.md $'# Mine\n\n## Commits & PRs\n'
