@@ -18,6 +18,10 @@ What each entity owes (this script enforces it):
              A technical PR (sync, pins, docs, CI) links no issue: its commit is the record.
   Milestone  one release (vX.Y.Z); tag only when every issue is closed, every PR that
              links one is merged, and no PR is still open.
+  Feature    an issue in the backlog repository whose milestone says "Release: business"
+             on a line of its own. It sits in that business milestone, not in the version
+             milestone of the PR that does a part of it, so a link to a feature skips the
+             same-milestone rule. The PR still carries its own version milestone.
 
 Usage:
   scripts/check-linkage.sh --pr <N>          # GATE one PR: milestone + any linked issue in the same milestone
@@ -27,7 +31,9 @@ Usage:
   scripts/check-linkage.sh --help
 
 Env:
-  REPO=owner/name   # override repo (default: gh repo view of the current checkout)
+  REPO=owner/name          # override repo (default: gh repo view of the current checkout)
+  BACKLOG_REPO=owner/name  # the repository whose business milestones hold features
+                           # (default: galax-io/galaxio-sdlc-backlog)
 
 Exit: 0 all rules hold | 1 at least one violation | 2 usage/prereq error.
 EOF
@@ -39,6 +45,8 @@ done
 
 REPO="${REPO:-$(gh repo view --json nameWithOwner -q .nameWithOwner 2>/dev/null || true)}"
 [ -n "$REPO" ] || { echo "error: cannot determine repo — run inside a GitHub checkout or set REPO=owner/name" >&2; exit 2; }
+
+BACKLOG_REPO="${BACKLOG_REPO:-galax-io/galaxio-sdlc-backlog}"
 
 TAG_MODE=0
 MS=""
@@ -71,6 +79,12 @@ body_refs() { # pr-json, regex of what precedes a link -> "[owner/repo]#N" links
 }
 issue_ms() { # owner/repo#N -> the issue's milestone title
   gh issue view "${1##*#}" --repo "${1%#*}" --json milestone -q '.milestone.title // ""' 2>/dev/null || echo ""
+}
+feature_ms() { # owner/repo#N -> the business milestone's title when the issue is a feature of the backlog
+  [ "${1%#*}" = "$BACKLOG_REPO" ] || return 0
+  gh issue view "${1##*#}" --repo "${1%#*}" --json milestone -q '
+    select(.milestone != null and ((.milestone.description // "")
+      | test("(^|\n)[ \t]*Release:[ \t]*business[ \t]*\r?(\n|$)"; "i"))) | .milestone.title' 2>/dev/null || true
 }
 pr_links() { # pr-json -> its issue links: registered closing links, else "Part of" lines
   local refs
@@ -119,8 +133,10 @@ if [ -n "$PR_NUM" ]; then
     fi
   else
     for i in $p_links; do
+      i_feature=$(feature_ms "$i")
       i_ms=$(issue_ms "$i")
-      if [ -z "$p_ms" ]; then printf '  - links %s (its milestone is "%s")\n' "$i" "${i_ms:-none}"
+      if [ -n "$i_feature" ]; then printf '  ✓ links %s (feature of business milestone "%s")\n' "$i" "$i_feature"
+      elif [ -z "$p_ms" ]; then printf '  - links %s (its milestone is "%s")\n' "$i" "${i_ms:-none}"
       elif [ "$i_ms" = "$p_ms" ]; then printf '  ✓ links %s (same milestone)\n' "$i"
       else printf '  ✗ links %s but its milestone is "%s", not "%s"\n' "$i" "${i_ms:-none}" "$p_ms"; e=1; fi
     done
@@ -199,6 +215,7 @@ for pr in $pr_numbers; do
   pr_ok=1
   for ri in $ref_nums; do
     linked_issues="$linked_issues$ri "
+    [ -z "$(feature_ms "$ri")" ] || continue   # a feature sits in its business milestone
     ri_ms=$(issue_ms "$ri")
     if [ "$ri_ms" != "$ms_title" ]; then
       err "PR #$pr links issue $ri but that issue's milestone is '${ri_ms:-none}', not '$ms_title'"
