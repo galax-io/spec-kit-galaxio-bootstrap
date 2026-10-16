@@ -56,6 +56,24 @@ filled-in `AGENTS.md` sections survive; new process rules land.
   dies on `git checkout`, that's the cause — fix the hook or run with a clean
   `GIT_CONFIG_GLOBAL`.
 
+## Adopting a repository that already exists
+
+`copier copy` into a repository with its own `AGENTS.md` and scripts would want to replace them,
+and a later `copier update` would take every difference for a local edit. For a repository that
+was not made from this template use `scripts/adopt.sh` instead:
+
+```bash
+scripts/adopt.sh --dry-run --org-repo galax-io/<repo> ~/code/<repo>   # what it would do
+scripts/adopt.sh --org-repo galax-io/<repo> --tagline "…" ~/code/<repo>
+```
+
+It never replaces a file the repository has. The "Feature milestones (ALWAYS)" section is inserted
+into the existing `AGENTS.md` (into `CLAUDE.md` when that is where the project keeps its own
+guidance), before "## Commits & PRs"; files of the gate that are missing are added; a gate file that
+exists is kept and reported as "same as" or "differs from" the template so the difference can be
+reviewed; a missing `AGENTS.md` is rendered with copier. It creates no `.copier-answers.yml` and
+does not touch `.claude/settings.json`, which registers the hook. Running it twice changes nothing.
+
 ## What you get in a scaffolded project
 
 ```
