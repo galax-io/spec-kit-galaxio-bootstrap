@@ -125,10 +125,10 @@ Trunk-based with release branches. Trunk is `main`; `release/*` branches are cut
 - **Before tagging**: every PR merged since the previous tag must be assigned to the milestone; every issue in the milestone whose fix is on `main` must be closed
 
 <!-- The issue↔PR↔milestone contract above is enforced mechanically by         -->
-<!-- scripts/check-linkage.sh, run from three places:                           -->
+<!-- scripts/check-linkage.sh, run from two places:                             -->
 <!--   .claude/hooks/linkage-guard.sh  in-session, before the command runs      -->
 <!--     (LINKAGE_OFF=1 bypasses it for a deliberate release)                   -->
 <!--   .githooks/pre-push               on any push, from any client            -->
 <!--     enable once per clone: git config core.hooksPath .githooks             -->
-<!--   the release workflow             server-side, where nothing bypasses it  -->
-<!-- The first two are fast local failures; the workflow is the authority.      -->
+<!-- Both are fast local failures and both can be skipped. Nothing checks       -->
+<!-- server-side unless the release workflow runs check-linkage.sh --for-tag.   -->
