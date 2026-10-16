@@ -93,8 +93,8 @@ BACKLOG=galax-io/backlog
 new_case() { # name
   fx="$tmp/fx-$1"; mkdir -p "$fx"; : > "$fx/items.ndjson"
 }
-issue_in() { # owner/repo, number, milestone title — an issue the script may look up
-  jq -nc --arg ms "$3" '{milestone: (if $ms == "" then null else {title: $ms} end)}' \
+issue_in() { # owner/repo, number, milestone title, [milestone description] — an issue the script may look up
+  jq -nc --arg ms "$3" --arg desc "${4:-}" '{milestone: (if $ms == "" then null else {title: $ms, description: $desc} end)}' \
     > "$fx/issue-${1//\//_}-$2.json"
 }
 add_issue() { # number, state (open|closed) — an issue of this repository in v0.8.0
@@ -117,7 +117,7 @@ add_pr() { # number, state, closing link or "", [body] — a PR in v0.8.0
   pr_json "$1" "$2" "$3" "${4:-}" v0.8.0
 }
 run() { # the script's arguments; sets $out and $rc
-  out="$(PATH="$bin:$PATH" REPO="$REPO" FIXTURES="$fx" bash "$script" "$@" 2>&1)"; rc=$?
+  out="$(PATH="$bin:$PATH" REPO="$REPO" BACKLOG_REPO="$BACKLOG" FIXTURES="$fx" bash "$script" "$@" 2>&1)"; rc=$?
 }
 has() { grep -qF -- "$1" <<<"$out"; }
 only_known_calls() { [ ! -s "$fx/unexpected.log" ]; }
@@ -274,6 +274,75 @@ check "audit: an unregistered Closes does not fail the audit" $([ "$rc" -eq 0 ] 
 check "audit: it is reported as a warning" $(has '! PR #2 links via body text only' && echo 0 || echo 1) "out=$out"
 check "audit: the issue counts as linked" $(has '✓ issue #1 (open) ← linked' && echo 0 || echo 1) "out=$out"
 check "audit: prose \"part of\" leaves the PR technical" $(has '✓ PR #3 (OPEN) → no issue (technical)' && echo 0 || echo 1) "out=$out"
+
+BUSINESS='Release: business'
+
+# 18. gate: a PR with a version milestone may link a feature of the backlog; the feature
+#     sits in a business milestone of its own, so the milestones need not match
+new_case gate-feature
+pr_json 3 OPEN "" "Part of $BACKLOG#30" v0.8.0
+issue_in "$BACKLOG" 30 'M1 — first run' "$BUSINESS"
+run --pr 3
+check "gate: Part of a backlog feature in a business milestone passes" $([ "$rc" -eq 0 ] && echo 0 || echo 1) "rc=$rc out=$out"
+check "gate: it names the business milestone" $(has "✓ links $BACKLOG#30 (feature of business milestone \"M1 — first run\")" && echo 0 || echo 1) "out=$out"
+check "gate: the script made only the calls the stub knows" $(only_known_calls && echo 0 || echo 1) "$(cat "$fx/unexpected.log" 2>&1)"
+
+# 19. gate: the marker may sit among other lines of the milestone description
+new_case gate-feature-multiline
+pr_json 3 OPEN "" "Part of $BACKLOG#30" v0.8.0
+issue_in "$BACKLOG" 30 'M1 — first run' $'First real run of the process.\nRelease: business\nDue: autumn'
+run --pr 3
+check "gate: the marker on its own line of a longer description counts" $([ "$rc" -eq 0 ] && echo 0 || echo 1) "rc=$rc out=$out"
+
+# 20. gate: a backlog issue in an ordinary milestone is not a feature
+new_case gate-backlog-plain
+pr_json 3 OPEN "" "Part of $BACKLOG#31" v0.8.0
+issue_in "$BACKLOG" 31 'v0.7.0' 'Tooling of the backlog itself.'
+run --pr 3
+check "gate: a backlog issue in an ordinary milestone still has to match" $([ "$rc" -eq 1 ] && echo 0 || echo 1) "rc=$rc out=$out"
+check "gate: it names both milestones" $(has "✗ links $BACKLOG#31 but its milestone is \"v0.7.0\", not \"v0.8.0\"" && echo 0 || echo 1) "out=$out"
+
+# 21. gate: the marker only counts in the backlog repository
+new_case gate-marker-elsewhere
+pr_json 3 OPEN "$REPO#1" "Closes #1" v0.8.0
+issue_in "$REPO" 1 'M1 — first run' "$BUSINESS"
+run --pr 3
+check "gate: the marker in another repository does not make a feature" $([ "$rc" -eq 1 ] && echo 0 || echo 1) "rc=$rc out=$out"
+
+# 22. gate: a backlog issue without a milestone is not a feature
+new_case gate-feature-no-milestone
+pr_json 3 OPEN "" "Part of $BACKLOG#32" v0.8.0
+issue_in "$BACKLOG" 32 ""
+run --pr 3
+check "gate: a backlog issue without a milestone fails" $([ "$rc" -eq 1 ] && echo 0 || echo 1) "rc=$rc out=$out"
+
+# 23. gate: the PR itself still needs its version milestone
+new_case gate-feature-no-pr-milestone
+pr_json 3 OPEN "" "Part of $BACKLOG#30" ""
+issue_in "$BACKLOG" 30 'M1 — first run' "$BUSINESS"
+run --pr 3
+check "gate: a feature link does not replace the PR's own milestone" $([ "$rc" -eq 1 ] && echo 0 || echo 1) "rc=$rc out=$out"
+check "gate: it says to assign one" $(has '✗ no milestone' && echo 0 || echo 1) "out=$out"
+check "gate: the feature link is still reported" $(has "✓ links $BACKLOG#30 (feature of business milestone" && echo 0 || echo 1) "out=$out"
+
+# 24. audit: a PR of the milestone that links a backlog feature is not an error
+new_case audit-feature
+add_issue 1 open
+add_pr 2 OPEN "" "Part of $BACKLOG#30"
+issue_in "$BACKLOG" 30 'M1 — first run' "$BUSINESS"
+run
+check "audit: linking a backlog feature passes the audit" $([ "$rc" -eq 0 ] && echo 0 || echo 1) "rc=$rc out=$out"
+check "audit: the PR is listed with its link" $(has "✓ PR #2 (OPEN) → $BACKLOG#30" && echo 0 || echo 1) "out=$out"
+
+# 25. tag: a merged PR of a feature does not block the tag of its repository
+new_case tag-feature
+add_issue 1 closed
+add_pr 2 MERGED "$REPO#1"
+add_pr 3 MERGED "" "Part of $BACKLOG#30"
+issue_in "$BACKLOG" 30 'M1 — first run' "$BUSINESS"
+run --tag
+check "tag: a merged PR that links a feature does not block the tag" $([ "$rc" -eq 0 ] && echo 0 || echo 1) "rc=$rc out=$out"
+check "tag: the milestone is tag-ready" $(has 'Milestone #8 is tag-ready.' && echo 0 || echo 1) "out=$out"
 
 printf '\n%d passed, %d failed\n' "$pass" "$fail"
 [ "$fail" -eq 0 ]
