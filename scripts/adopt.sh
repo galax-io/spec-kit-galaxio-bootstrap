@@ -26,6 +26,8 @@ It never replaces a file the repository has:
               test, .githooks/pre-push and its test: each is added when missing;
               one that exists is kept and reported as "same as the template" or
               "differs from the template" so the difference can be reviewed.
+              A test is not added next to a script that differs from the template:
+              a test belongs to its script.
 It never creates .copier-answers.yml: a later `copier update` would take the
 differences for local edits.
 
@@ -147,7 +149,16 @@ fi
 for f in scripts/check-linkage.sh scripts/check-linkage_test.sh \
          .claude/hooks/linkage-guard.sh .claude/hooks/linkage-guard_test.sh \
          .githooks/pre-push .githooks/pre-push_test.sh; do
-  if [ ! -e "$TARGET/$f" ]; then
+  # A test belongs to its script: next to a script that differs from the template, the
+  # template's test would assert behaviour the script lacks.
+  script="${f%_test.sh}.sh"
+  if [ ! -e "$TARGET/$f" ] && [ "$script" != "$f" ] && [ "${f##*/}" != "pre-push_test.sh" ] \
+     && [ -e "$TARGET/$script" ] && ! cmp -s "$TARGET/$script" "$TEMPLATE_DIR/$script"; then
+    echo "skipped: $f (its script differs from the template)"
+  elif [ ! -e "$TARGET/$f" ] && [ "${f##*/}" = "pre-push_test.sh" ] \
+     && [ -e "$TARGET/.githooks/pre-push" ] && ! cmp -s "$TARGET/.githooks/pre-push" "$TEMPLATE_DIR/.githooks/pre-push"; then
+    echo "skipped: $f (its script differs from the template)"
+  elif [ ! -e "$TARGET/$f" ]; then
     put "$f" "$TEMPLATE_DIR/$f"
   elif cmp -s "$TARGET/$f" "$TEMPLATE_DIR/$f"; then
     echo "kept: $f (same as the template)"
