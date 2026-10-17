@@ -214,5 +214,90 @@ new_repo no-template
 out="$(PATH="$bin:$PATH" TEMPLATE_DIR="$tmp/nope" COPIER_LOG="$tmp/copier.log" bash "$script" "$repo" 2>&1)"; rc=$?
 check "usage: a missing template directory fails with 2" $([ "$rc" -eq 2 ] && echo 0 || echo 1) "rc=$rc out=$out"
 
+# ---- --refresh: bring gate files and the section up to the current template, but only ----
+# ---- those that equal a released version of the template; a local variant is kept ---------
+tpl2="$tmp/tpl2"; mkdir -p "$tpl2/template/scripts" "$tpl2/template/.claude/hooks" "$tpl2/template/.githooks"
+(
+  cd "$tpl2" && git init -q . && git config user.email t@t && git config user.name t
+  mk() { # version label — the template at that version
+    printf '# {{ project_name }}\n\n## Feature milestones (ALWAYS)\n\nRule %s.\n\n## Commits & PRs\n' "$1" > template/AGENTS.md.jinja
+    printf '# {{ project_name }}\n' > template/CLAUDE.md.jinja
+    for f in scripts/check-linkage.sh scripts/check-linkage_test.sh .claude/hooks/linkage-guard.sh \
+             .claude/hooks/linkage-guard_test.sh .githooks/pre-push .githooks/pre-push_test.sh; do
+      printf '#!/usr/bin/env bash\n# %s %s\n' "$f" "$1" > "template/$f"
+    done
+  }
+  mk one; git add -A; git commit -qm one; git tag v0.1.0
+  mk two; git add -A; git commit -qm two; git tag v0.2.0
+  mk three; git add -A; git commit -qm three
+)
+run2() { # adopt.sh arguments against the template that has history
+  : > "$tmp/copier.log"
+  out="$(PATH="$bin:$PATH" TEMPLATE_DIR="$tpl2/template" COPIER_LOG="$tmp/copier.log" bash "$script" "$@" 2>&1)"; rc=$?
+}
+gate_at() { # relative path, version label — the content a template of that version put there
+  printf '#!/usr/bin/env bash\n# %s %s\n' "$1" "$2"
+}
+
+# R1. a gate file equal to an older released template is replaced, with the version named
+new_repo refresh-old
+write AGENTS.md $'# Mine\n\n## Commits & PRs\n'
+write scripts/check-linkage.sh "$(gate_at scripts/check-linkage.sh one)"$'\n'
+run2 --refresh "$repo"
+check "refresh: a file equal to an old template is updated" $([ "$(cat "$repo/scripts/check-linkage.sh")" = "$(gate_at scripts/check-linkage.sh three)" ] && echo 0 || echo 1) "$(cat "$repo/scripts/check-linkage.sh")"
+check "refresh: the report names the version it was" $(has 'updated: scripts/check-linkage.sh (was the template of v0.1.0)' && echo 0 || echo 1) "out=$out"
+
+# R2. a gate file that equals no released template is kept
+new_repo refresh-local
+write AGENTS.md $'# Mine\n\n## Commits & PRs\n'
+write scripts/check-linkage.sh $'#!/usr/bin/env bash\n# local variant\n'
+run2 --refresh "$repo"
+check "refresh: a local variant is kept" $([ "$(cat "$repo/scripts/check-linkage.sh")" = $'#!/usr/bin/env bash\n# local variant' ] && echo 0 || echo 1) "$(cat "$repo/scripts/check-linkage.sh")"
+check "refresh: it is reported as a local variant" $(has 'kept: scripts/check-linkage.sh (differs from every released template)' && echo 0 || echo 1) "out=$out"
+
+# R3. a file already equal to the current template is not touched
+new_repo refresh-current
+write AGENTS.md $'# Mine\n\n## Commits & PRs\n'
+mkdir -p "$repo/scripts"; cp "$tpl2/template/scripts/check-linkage.sh" "$repo/scripts/check-linkage.sh"
+run2 --refresh "$repo"
+check "refresh: a current file is reported as the same" $(has 'kept: scripts/check-linkage.sh (same as the template)' && echo 0 || echo 1) "out=$out"
+
+# R4. an old section is replaced by the current one, and nothing else of AGENTS.md changes
+new_repo refresh-section
+write AGENTS.md $'# Mine\n\nOur text.\n\n## Feature milestones (ALWAYS)\n\nRule one.\n\n## Commits & PRs\n\n- ours\n'
+run2 --refresh "$repo"
+check "refresh: an old section is replaced" $(grep -qF 'Rule three.' "$repo/AGENTS.md" && ! grep -qF 'Rule one.' "$repo/AGENTS.md" && echo 0 || echo 1) "$(cat "$repo/AGENTS.md")"
+check "refresh: the rest of AGENTS.md is untouched" $(grep -qF 'Our text.' "$repo/AGENTS.md" && grep -qF -- '- ours' "$repo/AGENTS.md" && echo 0 || echo 1) "$(cat "$repo/AGENTS.md")"
+check "refresh: the report says the section was updated" $(has 'updated: AGENTS.md (Feature milestones was the template of v0.1.0)' && echo 0 || echo 1) "out=$out"
+
+# R5. a section the repository edited is kept and flagged
+new_repo refresh-section-edited
+write AGENTS.md $'# Mine\n\n## Feature milestones (ALWAYS)\n\nOur own wording.\n\n## Commits & PRs\n'
+run2 --refresh "$repo"
+check "refresh: an edited section is kept" $(grep -qF 'Our own wording.' "$repo/AGENTS.md" && echo 0 || echo 1) "$(cat "$repo/AGENTS.md")"
+check "refresh: it says to review it by hand" $(has 'kept: AGENTS.md (Feature milestones differs from every released template; review by hand)' && echo 0 || echo 1) "out=$out"
+
+# R6. without --refresh an old file is kept as before
+new_repo refresh-off
+write AGENTS.md $'# Mine\n\n## Commits & PRs\n'
+write scripts/check-linkage.sh "$(gate_at scripts/check-linkage.sh one)"$'\n'
+run2 "$repo"
+check "refresh-off: no update without --refresh" $(has 'kept: scripts/check-linkage.sh (differs from the template)' && ! has 'updated:' && echo 0 || echo 1) "out=$out"
+
+# R7. --dry-run with --refresh writes nothing
+new_repo refresh-dry
+write AGENTS.md $'# Mine\n\n## Feature milestones (ALWAYS)\n\nRule one.\n\n## Commits & PRs\n'
+write scripts/check-linkage.sh "$(gate_at scripts/check-linkage.sh one)"$'\n'
+before=$(snapshot)
+run2 --dry-run --refresh "$repo"
+check "refresh-dry: nothing is written" $([ "$(snapshot)" = "$before" ] && echo 0 || echo 1) "$(diff <(echo "$before") <(snapshot))"
+check "refresh-dry: it still reports the update" $(has 'updated: scripts/check-linkage.sh' && echo 0 || echo 1) "out=$out"
+
+# R8. --refresh needs the template's history
+new_repo refresh-nogit
+write AGENTS.md $'# Mine\n\n## Commits & PRs\n'
+run --refresh "$repo"
+check "refresh-nogit: a template without history is refused" $([ "$rc" -eq 2 ] && has 'history' && echo 0 || echo 1) "rc=$rc out=$out"
+
 printf '\n%d passed, %d failed\n' "$pass" "$fail"
 [ "$fail" -eq 0 ]

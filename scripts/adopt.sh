@@ -31,8 +31,14 @@ It never replaces a file the repository has:
 It never creates .copier-answers.yml: a later `copier update` would take the
 differences for local edits.
 
+--refresh   also bring what an earlier run of this script put there up to the current
+              template: a gate file, or the "Feature milestones" section, that equals the
+              template of some released tag is replaced by the current one ("updated:");
+              one that equals no release is a local variant and is kept ("kept:").
+              Needs the template's git history (a checkout of the bootstrap repository).
+
 Usage:
-  scripts/adopt.sh [--dry-run] [--org-repo owner/name] [--tagline TEXT] <repository-dir>
+  scripts/adopt.sh [--dry-run] [--refresh] [--org-repo owner/name] [--tagline TEXT] <repository-dir>
 
 Env:
   TEMPLATE_DIR=dir   # the template to read (default: ../template next to this script)
@@ -42,12 +48,14 @@ EOF
 }
 
 DRY=0
+REFRESH=0
 ORG_REPO=""
 TAGLINE=""
 TARGET=""
 while [ $# -gt 0 ]; do
   case "$1" in
     --dry-run)  DRY=1 ;;
+    --refresh)  REFRESH=1 ;;
     --org-repo) shift; ORG_REPO="${1:-}"
                 [[ "$ORG_REPO" =~ ^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$ ]] || { echo "error: --org-repo needs owner/name" >&2; exit 2; } ;;
     --tagline)  shift; TAGLINE="${1:-}" ;;
@@ -62,6 +70,11 @@ done
 [ -d "$TARGET" ] || { echo "error: '$TARGET' is not a directory" >&2; exit 2; }
 [ -f "$TEMPLATE_DIR/AGENTS.md.jinja" ] || { echo "error: no template at '$TEMPLATE_DIR' (AGENTS.md.jinja missing)" >&2; exit 2; }
 TARGET="$(cd "$TARGET" && pwd)"
+SRC="$(dirname "$TEMPLATE_DIR")"
+if [ "$REFRESH" = 1 ] && ! git -C "$SRC" rev-parse --git-dir >/dev/null 2>&1; then
+  echo "error: --refresh needs the template's git history (tags of released versions); '$SRC' is not a git checkout" >&2
+  exit 2
+fi
 
 if [ -z "$ORG_REPO" ]; then
   remote="$(git -C "$TARGET" remote get-url origin 2>/dev/null || true)"
@@ -80,6 +93,22 @@ section="$(awk '
   on { print }
 ' "$TEMPLATE_DIR/AGENTS.md.jinja" | sed -e :a -e '/^\n*$/{$d;N;ba' -e '}')"
 [ -n "$section" ] || { echo "error: the template has no 'Feature milestones (ALWAYS)' section" >&2; exit 2; }
+
+# The tag whose template put exactly this content at this path, if any (--refresh).
+released_tag() { # path inside the template, file to compare
+  local tag
+  for tag in $(git -C "$SRC" tag --sort=version:refname); do
+    if git -C "$SRC" show "$tag:template/$1" 2>/dev/null | cmp -s - "$2"; then echo "$tag"; return 0; fi
+  done
+  return 1
+}
+section_of() { # file on stdin side: the Feature milestones section without trailing blank lines
+  awk '
+    /^## Feature milestones \(ALWAYS\)/ { on = 1; print; next }
+    on && /^## / { exit }
+    on { print }
+  ' | sed -e :a -e '/^\n*$/{$d;N;ba' -e '}'
+}
 
 rendered=""
 render() { # renders the template once into a temp dir; sets $rendered
@@ -117,7 +146,29 @@ fi
 
 if [ -n "$instr" ]; then
   if grep -q '^## Feature milestones' "$TARGET/$instr"; then
-    echo "kept: $instr (has Feature milestones)"
+    mine="$(section_of < "$TARGET/$instr")"
+    if [ "$REFRESH" = 0 ] || [ "$mine" = "$section" ]; then
+      echo "kept: $instr (has Feature milestones)"
+    else
+      old=""
+      for tag in $(git -C "$SRC" tag --sort=version:refname); do
+        if [ "$(git -C "$SRC" show "$tag:template/AGENTS.md.jinja" 2>/dev/null | section_of)" = "$mine" ]; then old="$tag"; break; fi
+      done
+      if [ -n "$old" ]; then
+        if [ "$DRY" = 0 ]; then
+          tmp="$(mktemp)"; secfile="$(mktemp)"; echo "$section" > "$secfile"
+          awk -v secfile="$secfile" '
+            /^## Feature milestones \(ALWAYS\)/ && !done { while ((getline line < secfile) > 0) print line; print ""; done = 1; skip = 1; next }
+            skip && /^## / { skip = 0 }
+            !skip { print }
+          ' "$TARGET/$instr" > "$tmp"
+          cat "$tmp" > "$TARGET/$instr"; rm -f "$tmp" "$secfile"
+        fi
+        echo "updated: $instr (Feature milestones was the template of $old)"
+      else
+        echo "kept: $instr (Feature milestones differs from every released template; review by hand)"
+      fi
+    fi
   else
     if [ "$DRY" = 0 ]; then
       tmp="$(mktemp)"; secfile="$(mktemp)"
@@ -162,6 +213,13 @@ for f in scripts/check-linkage.sh scripts/check-linkage_test.sh \
     put "$f" "$TEMPLATE_DIR/$f"
   elif cmp -s "$TARGET/$f" "$TEMPLATE_DIR/$f"; then
     echo "kept: $f (same as the template)"
+  elif [ "$REFRESH" = 1 ]; then
+    if old="$(released_tag "$f" "$TARGET/$f")"; then
+      [ "$DRY" = 1 ] || cp -p "$TEMPLATE_DIR/$f" "$TARGET/$f"
+      echo "updated: $f (was the template of $old)"
+    else
+      echo "kept: $f (differs from every released template)"
+    fi
   else
     echo "kept: $f (differs from the template)"
   fi
