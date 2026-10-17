@@ -74,6 +74,10 @@ exists is kept and reported as "same as" or "differs from" the template so the d
 reviewed; a missing `AGENTS.md` is rendered with copier. It creates no `.copier-answers.yml` and
 does not touch `.claude/settings.json`, which registers the hook. Running it twice changes nothing.
 
+`--refresh` also brings up to date what an earlier run put there: a gate file, or the section, that equals the
+template of some released tag is replaced by the current one; one that equals no release is a local variant and
+is kept, with a note. It needs a checkout of this repository with its tags.
+
 ## What you get in a scaffolded project
 
 ```
