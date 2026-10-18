@@ -6,9 +6,9 @@
 # renders the two files the script asks it for. What is under test is the promise of
 # adopt.sh: it brings the process into a repository that was not made from the
 # template WITHOUT replacing anything the repository already has — a file that exists
-# is kept byte for byte, the Feature milestones section is inserted into an existing
-# AGENTS.md and nothing else of it changes, files that are missing are added, and
-# running it twice changes nothing.
+# is kept byte for byte, the Feature milestones and Labels sections are inserted into an
+# existing AGENTS.md and nothing else of it changes, files that are missing are added,
+# and running it twice changes nothing.
 
 # shellcheck disable=SC2046
 set -uo pipefail
@@ -42,6 +42,12 @@ A feature is an issue in the backlog.
 
 - **Feature issue.** Lists the work.
 - **Release.** Publish when done.
+
+## Labels (ALWAYS)
+
+One label scheme for every repository.
+
+- **Names.** Every label is `group:value`.
 
 ## Commits & PRs
 
@@ -93,20 +99,36 @@ added=$(diff <(printf '# Mine\n\nProject-specific text.\n\n## Milestones (ALWAYS
 check "insert: no line of the original is removed or changed" $([ "$added" -eq 0 ] && echo 0 || echo 1) "removed/changed lines: $added"
 check "insert: the section text is the template's" $(grep -qF -- '- **Release.** Publish when done.' "$repo/AGENTS.md" && echo 0 || echo 1) "$(cat "$repo/AGENTS.md")"
 check "insert: it reports the insertion" $(has 'inserted: AGENTS.md (Feature milestones)' && echo 0 || echo 1) "out=$out"
+check "insert: the Labels section follows Feature milestones, before Commits & PRs" $(awk '/^## Feature milestones/{f=NR} /^## Labels/{l=NR} /^## Commits & PRs/{c=NR} END{exit !(f && l && c && f < l && l < c)}' "$repo/AGENTS.md" && echo 0 || echo 1) "$(cat "$repo/AGENTS.md")"
+check "insert: the Labels text is the template's" $(grep -qF -- '- **Names.** Every label is `group:value`.' "$repo/AGENTS.md" && echo 0 || echo 1) "$(cat "$repo/AGENTS.md")"
+check "insert: it reports the Labels insertion" $(has 'inserted: AGENTS.md (Labels)' && echo 0 || echo 1) "out=$out"
 
-# 2. an AGENTS.md that already has the section is left alone
+# 2. an AGENTS.md that already has both sections is left alone
 new_repo has-section
-write AGENTS.md $'# Mine\n\n## Feature milestones (ALWAYS)\n\nOur edited version.\n\n## Commits & PRs\n'
+write AGENTS.md $'# Mine\n\n## Feature milestones (ALWAYS)\n\nOur edited version.\n\n## Labels (ALWAYS)\n\nOur labels.\n\n## Commits & PRs\n'
 before=$(snapshot)
 run "$repo"
 check "has-section: AGENTS.md is not changed" $([ "$(snapshot | grep AGENTS.md)" = "$(grep AGENTS.md <<<"$before")" ] && echo 0 || echo 1) "$(cat "$repo/AGENTS.md")"
 check "has-section: it says the section is there" $(has 'kept: AGENTS.md (has Feature milestones)' && echo 0 || echo 1) "out=$out"
+check "has-section: it says the Labels section is there" $(has 'kept: AGENTS.md (has Labels)' && echo 0 || echo 1) "out=$out"
 
-# 3. no "Commits & PRs" heading: the section is appended
+# 2b. an AGENTS.md adopted before the Labels section existed: Labels goes right after
+#     Feature milestones, which is kept, and nothing else changes
+new_repo labels-after
+labels_before=$'# Mine\n\n## Feature milestones (ALWAYS)\n\nOur edited version.\n\n## Our own section\n\nOur text.\n\n## Commits & PRs\n'
+write AGENTS.md "$labels_before"
+run "$repo"
+check "labels-after: Labels sits right after Feature milestones" $(awk '/^## Feature milestones/{f=NR} /^## Labels/{l=NR} /^## Our own section/{o=NR} END{exit !(f && l && o && f < l && l < o)}' "$repo/AGENTS.md" && echo 0 || echo 1) "$(cat "$repo/AGENTS.md")"
+check "labels-after: Feature milestones is kept as the repository wrote it" $(grep -qF 'Our edited version.' "$repo/AGENTS.md" && ! grep -qF 'A feature is an issue in the backlog.' "$repo/AGENTS.md" && has 'kept: AGENTS.md (has Feature milestones)' && echo 0 || echo 1) "out=$out"
+removed=$(diff <(printf '%s' "$labels_before") "$repo/AGENTS.md" | grep -c '^<' || true)
+check "labels-after: no line of the original is removed or changed" $([ "$removed" -eq 0 ] && echo 0 || echo 1) "removed/changed lines: $removed"
+check "labels-after: it reports the Labels insertion" $(has 'inserted: AGENTS.md (Labels)' && echo 0 || echo 1) "out=$out"
+
+# 3. no "Commits & PRs" heading: the sections are appended
 new_repo append
 write AGENTS.md $'# Mine\n\nOnly this.\n'
 run "$repo"
-check "append: the section is added at the end" $(tail -n 8 "$repo/AGENTS.md" | grep -q '^## Feature milestones' && echo 0 || echo 1) "$(cat "$repo/AGENTS.md")"
+check "append: Feature milestones and then Labels are added at the end" $(awk '/^## /{p=q; q=$0} END{exit !(p ~ /^## Feature milestones/ && q ~ /^## Labels/)}' "$repo/AGENTS.md" && echo 0 || echo 1) "$(cat "$repo/AGENTS.md")"
 check "append: the original text is still first" $(head -n 3 "$repo/AGENTS.md" | grep -qF 'Only this.' && echo 0 || echo 1) "$(cat "$repo/AGENTS.md")"
 
 # 4. no AGENTS.md: it is rendered by copier, with the CLAUDE.md that goes with it
@@ -126,6 +148,7 @@ check "claude-guidance: the section is inserted into CLAUDE.md" $(grep -q '^## F
 check "claude-guidance: the guidance is untouched" $(grep -qF 'Our own guidance.' "$repo/CLAUDE.md" && grep -qF -- '- ours' "$repo/CLAUDE.md" && echo 0 || echo 1) "$(cat "$repo/CLAUDE.md")"
 check "claude-guidance: no AGENTS.md is created" $([ ! -e "$repo/AGENTS.md" ] && echo 0 || echo 1) "out=$out"
 check "claude-guidance: it reports the insertion" $(has 'inserted: CLAUDE.md (Feature milestones)' && echo 0 || echo 1) "out=$out"
+check "claude-guidance: the Labels section goes into CLAUDE.md too" $(grep -q '^## Labels (ALWAYS)' "$repo/CLAUDE.md" && has 'inserted: CLAUDE.md (Labels)' && echo 0 || echo 1) "$(cat "$repo/CLAUDE.md")"
 
 # 5b. a CLAUDE.md that only points at AGENTS.md is no guidance: AGENTS.md is rendered
 new_repo claude-pointer
@@ -192,7 +215,7 @@ write AGENTS.md $'# Mine\n\n## Commits & PRs\n'
 before=$(snapshot)
 run --dry-run "$repo"
 check "dry-run: nothing is written" $([ "$(snapshot)" = "$before" ] && echo 0 || echo 1) "$(snapshot)"
-check "dry-run: it still reports what it would do" $(has 'inserted: AGENTS.md (Feature milestones)' && has 'added: scripts/check-linkage.sh' && echo 0 || echo 1) "out=$out"
+check "dry-run: it still reports what it would do" $(has 'inserted: AGENTS.md (Feature milestones)' && has 'inserted: AGENTS.md (Labels)' && has 'added: scripts/check-linkage.sh' && echo 0 || echo 1) "out=$out"
 check "dry-run: it says it is a dry run" $(has 'dry run' && echo 0 || echo 1) "out=$out"
 
 # 10. a second run changes nothing
@@ -220,8 +243,10 @@ check "usage: a missing template directory fails with 2" $([ "$rc" -eq 2 ] && ec
 tpl2="$tmp/tpl2"; mkdir -p "$tpl2/template/scripts" "$tpl2/template/.claude/hooks" "$tpl2/template/.githooks" "$tpl2/template/.github/workflows"
 (
   cd "$tpl2" && git init -q . && git config user.email t@t && git config user.name t
-  mk() { # version label — the template at that version
-    printf '# {{ project_name }}\n\n## Feature milestones (ALWAYS)\n\nRule %s.\n\n## Commits & PRs\n' "$1" > template/AGENTS.md.jinja
+  mk() { # version label, "labels" when that version has the Labels section — the template at that version
+    { printf '# {{ project_name }}\n\n## Feature milestones (ALWAYS)\n\nRule %s.\n\n' "$1"
+      [ "${2:-}" != labels ] || printf '## Labels (ALWAYS)\n\nLabels %s.\n\n' "$1"
+      printf '## Commits & PRs\n'; } > template/AGENTS.md.jinja
     printf '# {{ project_name }}\n' > template/CLAUDE.md.jinja
     printf 'name: linkage\n# %s\n' "$1" > template/.github/workflows/linkage.yml
     for f in scripts/check-linkage.sh scripts/check-linkage_test.sh .claude/hooks/linkage-guard.sh \
@@ -230,8 +255,8 @@ tpl2="$tmp/tpl2"; mkdir -p "$tpl2/template/scripts" "$tpl2/template/.claude/hook
     done
   }
   mk one; git add -A; git commit -qm one; git tag v0.1.0
-  mk two; git add -A; git commit -qm two; git tag v0.2.0
-  mk three; git add -A; git commit -qm three
+  mk two labels; git add -A; git commit -qm two; git tag v0.2.0
+  mk three labels; git add -A; git commit -qm three
 )
 run2() { # adopt.sh arguments against the template that has history
   : > "$tmp/copier.log"
@@ -278,6 +303,32 @@ write AGENTS.md $'# Mine\n\n## Feature milestones (ALWAYS)\n\nOur own wording.\n
 run2 --refresh "$repo"
 check "refresh: an edited section is kept" $(grep -qF 'Our own wording.' "$repo/AGENTS.md" && echo 0 || echo 1) "$(cat "$repo/AGENTS.md")"
 check "refresh: it says to review it by hand" $(has 'kept: AGENTS.md (Feature milestones differs from every released template; review by hand)' && echo 0 || echo 1) "out=$out"
+
+# R5b. an AGENTS.md refreshed from a release before Labels existed gets the section
+new_repo refresh-labels-new
+write AGENTS.md $'# Mine\n\n## Feature milestones (ALWAYS)\n\nRule one.\n\n## Commits & PRs\n'
+run2 --refresh "$repo"
+check "refresh: Labels is inserted after the refreshed Feature milestones" $(awk '/^Rule three\./{f=NR} /^Labels three\./{l=NR} /^## Commits & PRs/{c=NR} END{exit !(f && l && c && f < l && l < c)}' "$repo/AGENTS.md" && has 'inserted: AGENTS.md (Labels)' && echo 0 || echo 1) "$(cat "$repo/AGENTS.md")"
+
+# R5c. an old Labels section is replaced by the current one, an edited one is kept
+new_repo refresh-labels-old
+write AGENTS.md $'# Mine\n\n## Feature milestones (ALWAYS)\n\nRule three.\n\n## Labels (ALWAYS)\n\nLabels two.\n\n## Commits & PRs\n\n- ours\n'
+run2 --refresh "$repo"
+check "refresh: an old Labels section is replaced" $(grep -qF 'Labels three.' "$repo/AGENTS.md" && ! grep -qF 'Labels two.' "$repo/AGENTS.md" && grep -qF -- '- ours' "$repo/AGENTS.md" && echo 0 || echo 1) "$(cat "$repo/AGENTS.md")"
+check "refresh: the report says Labels was updated" $(has 'updated: AGENTS.md (Labels was the template of v0.2.0)' && has 'kept: AGENTS.md (has Feature milestones)' && echo 0 || echo 1) "out=$out"
+new_repo refresh-labels-edited
+write AGENTS.md $'# Mine\n\n## Feature milestones (ALWAYS)\n\nRule three.\n\n## Labels (ALWAYS)\n\nOur labels.\n\n## Commits & PRs\n'
+run2 --refresh "$repo"
+check "refresh: an edited Labels section is kept and flagged" $(grep -qF 'Our labels.' "$repo/AGENTS.md" && has 'kept: AGENTS.md (Labels differs from every released template; review by hand)' && echo 0 || echo 1) "out=$out"
+
+# R5d. a heading of the repository's own that only starts like the section is not taken for
+#      the section of a release that had none
+new_repo refresh-labels-own
+own_labels=$'# Mine\n\n## Feature milestones (ALWAYS)\n\nRule three.\n\n## Labels we use\n\nOur list.\n\n## Commits & PRs\n'
+write AGENTS.md "$own_labels"
+run2 --refresh "$repo"
+check "refresh: an own heading is not replaced" $([ "$(cat "$repo/AGENTS.md")" = "${own_labels%$'\n'}" ] && ! has 'updated: AGENTS.md' && echo 0 || echo 1) "out=$out
+$(cat "$repo/AGENTS.md")"
 
 # R6. without --refresh an old file is kept as before
 new_repo refresh-off
