@@ -22,6 +22,8 @@ It never replaces a file the repository has:
               repository does not get a second source of truth.
               missing otherwise: rendered from the template with copier.
   CLAUDE.md   added when missing, kept otherwise.
+  the PR check  .github/workflows/linkage.yml runs the gate on every pull request; it is not
+              added when a workflow of the repository already runs `check-linkage.sh --pr`.
   the gate    scripts/check-linkage.sh, its test, .claude/hooks/linkage-guard.sh, its
               test, .githooks/pre-push and its test: each is added when missing;
               one that exists is kept and reported as "same as the template" or
@@ -224,6 +226,21 @@ for f in scripts/check-linkage.sh scripts/check-linkage_test.sh \
     echo "kept: $f (differs from the template)"
   fi
 done
+
+# The PR check: a workflow that runs the gate on pull requests, unless the repository has one already.
+WF=".github/workflows/linkage.yml"
+if [ -d "$TARGET/.github/workflows" ] && existing="$(grep -lE 'check-linkage\.sh[^|]*--pr' "$TARGET"/.github/workflows/*.y*ml 2>/dev/null | grep -v "/linkage\.yml$" | head -n1)" && [ -n "$existing" ]; then
+  echo "kept: .github/workflows/$(basename "$existing") (already runs the PR gate)"
+elif [ ! -e "$TARGET/$WF" ]; then
+  put "$WF" "$TEMPLATE_DIR/$WF"
+elif cmp -s "$TARGET/$WF" "$TEMPLATE_DIR/$WF"; then
+  echo "kept: $WF (same as the template)"
+elif [ "$REFRESH" = 1 ] && old="$(released_tag "$WF" "$TARGET/$WF")"; then
+  [ "$DRY" = 1 ] || cp -p "$TEMPLATE_DIR/$WF" "$TARGET/$WF"
+  echo "updated: $WF (was the template of $old)"
+else
+  echo "kept: $WF (differs from the template)"
+fi
 
 echo
 echo "Not touched: .copier-answers.yml, .claude/settings.json (which registers the hook), setup-speckit.sh."

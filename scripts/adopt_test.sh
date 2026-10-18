@@ -27,7 +27,8 @@ check() { # description, condition-exit-code, detail
 
 # ---- the fake template and the stub copier -----------------------------------------
 tpl="$tmp/template"
-mkdir -p "$tpl/scripts" "$tpl/.claude/hooks" "$tpl/.githooks"
+mkdir -p "$tpl/scripts" "$tpl/.claude/hooks" "$tpl/.githooks" "$tpl/.github/workflows"
+printf 'name: linkage\n# template\n' > "$tpl/.github/workflows/linkage.yml"
 cat > "$tpl/AGENTS.md.jinja" <<'EOF'
 # {{ project_name }} — Agent Guide
 
@@ -216,12 +217,13 @@ check "usage: a missing template directory fails with 2" $([ "$rc" -eq 2 ] && ec
 
 # ---- --refresh: bring gate files and the section up to the current template, but only ----
 # ---- those that equal a released version of the template; a local variant is kept ---------
-tpl2="$tmp/tpl2"; mkdir -p "$tpl2/template/scripts" "$tpl2/template/.claude/hooks" "$tpl2/template/.githooks"
+tpl2="$tmp/tpl2"; mkdir -p "$tpl2/template/scripts" "$tpl2/template/.claude/hooks" "$tpl2/template/.githooks" "$tpl2/template/.github/workflows"
 (
   cd "$tpl2" && git init -q . && git config user.email t@t && git config user.name t
   mk() { # version label — the template at that version
     printf '# {{ project_name }}\n\n## Feature milestones (ALWAYS)\n\nRule %s.\n\n## Commits & PRs\n' "$1" > template/AGENTS.md.jinja
     printf '# {{ project_name }}\n' > template/CLAUDE.md.jinja
+    printf 'name: linkage\n# %s\n' "$1" > template/.github/workflows/linkage.yml
     for f in scripts/check-linkage.sh scripts/check-linkage_test.sh .claude/hooks/linkage-guard.sh \
              .claude/hooks/linkage-guard_test.sh .githooks/pre-push .githooks/pre-push_test.sh; do
       printf '#!/usr/bin/env bash\n# %s %s\n' "$f" "$1" > "template/$f"
@@ -298,6 +300,33 @@ new_repo refresh-nogit
 write AGENTS.md $'# Mine\n\n## Commits & PRs\n'
 run --refresh "$repo"
 check "refresh-nogit: a template without history is refused" $([ "$rc" -eq 2 ] && has 'history' && echo 0 || echo 1) "rc=$rc out=$out"
+
+# W1. the PR check workflow is added when the repository has none
+new_repo wf-add
+write AGENTS.md $'# Mine\n\n## Commits & PRs\n'
+run "$repo"
+check "workflow: a repository without a PR check gets .github/workflows/linkage.yml" $([ -f "$repo/.github/workflows/linkage.yml" ] && has 'added: .github/workflows/linkage.yml' && echo 0 || echo 1) "out=$out"
+
+# W2. a workflow of the repository that already runs the PR gate is enough
+new_repo wf-existing
+write AGENTS.md $'# Mine\n\n## Commits & PRs\n'
+write .github/workflows/ci.yml $'name: ci\njobs:\n  linkage:\n    steps:\n      - run: bash scripts/check-linkage.sh --pr "$N"\n'
+run "$repo"
+check "workflow: an existing job that runs the PR gate is kept and no second workflow is added" $([ ! -e "$repo/.github/workflows/linkage.yml" ] && has 'kept: .github/workflows/ci.yml (already runs the PR gate)' && echo 0 || echo 1) "out=$out"
+
+# W3. a workflow that only audits a release is not a PR check
+new_repo wf-release-only
+write AGENTS.md $'# Mine\n\n## Commits & PRs\n'
+write .github/workflows/release.yml $'name: release\njobs:\n  guard:\n    steps:\n      - run: bash scripts/check-linkage.sh --for-tag "$TAG"\n'
+run "$repo"
+check "workflow: a release-only audit does not count as a PR check" $([ -f "$repo/.github/workflows/linkage.yml" ] && echo 0 || echo 1) "out=$out"
+
+# W4. a linkage.yml the repository already has is kept, byte for byte
+new_repo wf-own
+write AGENTS.md $'# Mine\n\n## Commits & PRs\n'
+write .github/workflows/linkage.yml $'name: linkage\n# mine\n'
+run "$repo"
+check "workflow: an existing linkage.yml is untouched" $([ "$(cat "$repo/.github/workflows/linkage.yml")" = $'name: linkage\n# mine' ] && has 'kept: .github/workflows/linkage.yml (differs from the template)' && echo 0 || echo 1) "out=$out"
 
 printf '\n%d passed, %d failed\n' "$pass" "$fail"
 [ "$fail" -eq 0 ]
