@@ -78,7 +78,7 @@ does not touch `.claude/settings.json`, which registers the hook. Running it twi
 template of some released tag is replaced by the current one; one that equals no release is a local variant and
 is kept, with a note. It needs a checkout of this repository with its tags.
 
-The PR check is a workflow, `.github/workflows/linkage.yml`, added when the repository has none that runs `check-linkage.sh --pr`. It needs the organisation secret `BACKLOG_READ_TOKEN`: a fine-grained token with read access to Issues and Metadata of the backlog repository only. The backlog is private, so the job's own token cannot read it, and the gate uses the second token for the calls about the backlog and for nothing else.
+The PR check is a workflow, `.github/workflows/linkage.yml`, added when the repository has none that runs `check-linkage.sh --pr`. It needs the organization secret `BACKLOG_READ_TOKEN`: a fine-grained token with read access to Issues and Metadata of the backlog repository only. The backlog is private, so the job's own token cannot read it, and the gate uses the second token for the calls about the backlog and for nothing else.
 
 ## What you get in a scaffolded project
 
