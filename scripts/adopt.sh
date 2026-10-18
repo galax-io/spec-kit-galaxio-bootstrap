@@ -15,10 +15,11 @@ adopt.sh — bring the Galaxio process into a repository that was not made from 
 
 It never replaces a file the repository has:
   AGENTS.md   exists: the "Feature milestones (ALWAYS)" section is inserted before
-              "## Commits & PRs" (or appended), and nothing else of the file changes;
-              a file that already has the section is left alone.
+              "## Commits & PRs" (or appended), the "Labels (ALWAYS)" section right
+              after it, and nothing else of the file changes; a section the file
+              already has is left alone.
               missing, but CLAUDE.md holds the project's own guidance (more than a
-              pointer to AGENTS.md): the section goes into CLAUDE.md instead, so the
+              pointer to AGENTS.md): the sections go into CLAUDE.md instead, so the
               repository does not get a second source of truth.
               missing otherwise: rendered from the template with copier.
   CLAUDE.md   added when missing, kept otherwise.
@@ -34,7 +35,7 @@ It never creates .copier-answers.yml: a later `copier update` would take the
 differences for local edits.
 
 --refresh   also bring what an earlier run of this script put there up to the current
-              template: a gate file, or the "Feature milestones" section, that equals the
+              template: a gate file, or one of the two sections, that equals the
               template of some released tag is replaced by the current one ("updated:");
               one that equals no release is a local variant and is kept ("kept:").
               Needs the template's git history (a checkout of the bootstrap repository).
@@ -88,13 +89,21 @@ NAME="${ORG_REPO#*/}"
 [ "$DRY" = 1 ] && echo "dry run: nothing is written"
 echo "Repository: $TARGET ($ORG_REPO)"
 
-# The section, from the template: its heading down to the next "## " heading, no trailing blank lines.
-section="$(awk '
-  /^## Feature milestones \(ALWAYS\)/ { on = 1; print; next }
-  on && /^## / { exit }
-  on { print }
-' "$TEMPLATE_DIR/AGENTS.md.jinja" | sed -e :a -e '/^\n*$/{$d;N;ba' -e '}')"
-[ -n "$section" ] || { echo "error: the template has no 'Feature milestones (ALWAYS)' section" >&2; exit 2; }
+# The sections the process adds to a project's instructions.
+FEATURES="Feature milestones (ALWAYS)"
+LABELS="Labels (ALWAYS)"
+
+section_of() { # heading; file on stdin — the section: its heading down to the next "## " heading, no trailing blank lines
+  awk -v h="## $1" '
+    index($0, h) == 1 { on = 1; print; next }
+    on && /^## / { exit }
+    on { print }
+  ' | sed -e :a -e '/^\n*$/{$d;N;ba' -e '}'
+}
+for heading in "$FEATURES" "$LABELS"; do
+  [ -n "$(section_of "$heading" < "$TEMPLATE_DIR/AGENTS.md.jinja")" ] \
+    || { echo "error: the template has no '$heading' section" >&2; exit 2; }
+done
 
 # The tag whose template put exactly this content at this path, if any (--refresh).
 released_tag() { # path inside the template, file to compare
@@ -103,13 +112,6 @@ released_tag() { # path inside the template, file to compare
     if git -C "$SRC" show "$tag:template/$1" 2>/dev/null | cmp -s - "$2"; then echo "$tag"; return 0; fi
   done
   return 1
-}
-section_of() { # file on stdin side: the Feature milestones section without trailing blank lines
-  awk '
-    /^## Feature milestones \(ALWAYS\)/ { on = 1; print; next }
-    on && /^## / { exit }
-    on { print }
-  ' | sed -e :a -e '/^\n*$/{$d;N;ba' -e '}'
 }
 
 rendered=""
@@ -138,7 +140,7 @@ put() { # relative path, source file — add a file that is missing
 }
 
 # The file that holds the project's instructions: AGENTS.md, else a CLAUDE.md that says
-# more than "@AGENTS.md". The section goes into it; the rest of the file is not touched.
+# more than "@AGENTS.md". The sections go into it; the rest of the file is not touched.
 instr=""
 if [ -f "$TARGET/AGENTS.md" ]; then
   instr="AGENTS.md"
@@ -146,45 +148,56 @@ elif [ -f "$TARGET/CLAUDE.md" ] && grep -qvE '^[[:space:]]*(#.*|@AGENTS\.md)?[[:
   instr="CLAUDE.md"
 fi
 
-if [ -n "$instr" ]; then
-  if grep -q '^## Feature milestones' "$TARGET/$instr"; then
-    mine="$(section_of < "$TARGET/$instr")"
-    if [ "$REFRESH" = 0 ] || [ "$mine" = "$section" ]; then
-      echo "kept: $instr (has Feature milestones)"
-    else
-      old=""
-      for tag in $(git -C "$SRC" tag --sort=version:refname); do
-        if [ "$(git -C "$SRC" show "$tag:template/AGENTS.md.jinja" 2>/dev/null | section_of)" = "$mine" ]; then old="$tag"; break; fi
-      done
-      if [ -n "$old" ]; then
-        if [ "$DRY" = 0 ]; then
-          tmp="$(mktemp)"; secfile="$(mktemp)"; echo "$section" > "$secfile"
-          awk -v secfile="$secfile" '
-            /^## Feature milestones \(ALWAYS\)/ && !done { while ((getline line < secfile) > 0) print line; print ""; done = 1; skip = 1; next }
-            skip && /^## / { skip = 0 }
-            !skip { print }
-          ' "$TARGET/$instr" > "$tmp"
-          cat "$tmp" > "$TARGET/$instr"; rm -f "$tmp" "$secfile"
-        fi
-        echo "updated: $instr (Feature milestones was the template of $old)"
-      else
-        echo "kept: $instr (Feature milestones differs from every released template; review by hand)"
-      fi
+# One section of the template into $instr. Missing: inserted before line $2, or appended
+# when $2 is empty. Present: kept; with --refresh, a section equal to that of a released
+# template is replaced by the current one.
+sync_section() { # heading, line the section goes before
+  local heading="$1" name="${1% (ALWAYS)}" text mine old="" tag tmp secfile
+  text="$(section_of "$heading" < "$TEMPLATE_DIR/AGENTS.md.jinja")"
+  if grep -q "^## $name" "$TARGET/$instr"; then
+    mine="$(section_of "$heading" < "$TARGET/$instr")"
+    if [ "$REFRESH" = 0 ] || [ "$mine" = "$text" ]; then
+      echo "kept: $instr (has $name)"; return 0
     fi
+    # An empty one is a heading of the project's own, not the section of a release that had none.
+    if [ -n "$mine" ]; then
+      for tag in $(git -C "$SRC" tag --sort=version:refname); do
+        if [ "$(git -C "$SRC" show "$tag:template/AGENTS.md.jinja" 2>/dev/null | section_of "$heading")" = "$mine" ]; then old="$tag"; break; fi
+      done
+    fi
+    if [ -z "$old" ]; then
+      echo "kept: $instr ($name differs from every released template; review by hand)"; return 0
+    fi
+    if [ "$DRY" = 0 ]; then
+      tmp="$(mktemp)"; secfile="$(mktemp)"; echo "$text" > "$secfile"
+      awk -v h="## $heading" -v secfile="$secfile" '
+        index($0, h) == 1 && !done { while ((getline line < secfile) > 0) print line; print ""; done = 1; skip = 1; next }
+        skip && /^## / { skip = 0 }
+        !skip { print }
+      ' "$TARGET/$instr" > "$tmp"
+      cat "$tmp" > "$TARGET/$instr"; rm -f "$tmp" "$secfile"
+    fi
+    echo "updated: $instr ($name was the template of $old)"
   else
     if [ "$DRY" = 0 ]; then
       tmp="$(mktemp)"; secfile="$(mktemp)"
-      echo "$section" > "$secfile"   # awk -v cannot carry newlines on every awk
-      if grep -q '^## Commits & PRs' "$TARGET/$instr"; then
-        awk -v secfile="$secfile" '/^## Commits & PRs/ && !done { while ((getline line < secfile) > 0) print line; print ""; done = 1 } { print }' "$TARGET/$instr" > "$tmp"
+      echo "$text" > "$secfile"   # awk -v cannot carry newlines on every awk
+      if [ -n "$2" ]; then
+        awk -v at="$2" -v secfile="$secfile" 'NR == at { while ((getline line < secfile) > 0) print line; print "" } { print }' "$TARGET/$instr" > "$tmp"
       else
-        { cat "$TARGET/$instr"; [ -z "$(tail -c1 "$TARGET/$instr")" ] || echo; echo; echo "$section"; } > "$tmp"
+        { cat "$TARGET/$instr"; [ -z "$(tail -c1 "$TARGET/$instr")" ] || echo; echo; echo "$text"; } > "$tmp"
       fi
       cat "$tmp" > "$TARGET/$instr"   # keeps the file's mode and owner
       rm -f "$tmp" "$secfile"
     fi
-    echo "inserted: $instr (Feature milestones)"
+    echo "inserted: $instr ($name)"
   fi
+}
+
+if [ -n "$instr" ]; then
+  # Feature milestones goes before "## Commits & PRs"; Labels right after Feature milestones.
+  sync_section "$FEATURES" "$(awk '/^## Commits & PRs/ { print NR; exit }' "$TARGET/$instr")"
+  sync_section "$LABELS" "$(awk 'on && /^## / { print NR; exit } /^## Feature milestones/ { on = 1 }' "$TARGET/$instr")"
 else
   render
   put AGENTS.md "$rendered/AGENTS.md"

@@ -69,12 +69,13 @@ scripts/adopt.sh --org-repo galax-io/<repo> --tagline "…" ~/code/<repo>
 
 It never replaces a file the repository has. The "Feature milestones (ALWAYS)" section is inserted
 into the existing `AGENTS.md` (into `CLAUDE.md` when that is where the project keeps its own
-guidance), before "## Commits & PRs"; files of the gate that are missing are added; a gate file that
+guidance), before "## Commits & PRs", and the "Labels (ALWAYS)" section right after it; a section
+the file already has is kept; files of the gate that are missing are added; a gate file that
 exists is kept and reported as "same as" or "differs from" the template so the difference can be
 reviewed; a missing `AGENTS.md` is rendered with copier. It creates no `.copier-answers.yml` and
 does not touch `.claude/settings.json`, which registers the hook. Running it twice changes nothing.
 
-`--refresh` also brings up to date what an earlier run put there: a gate file, or the section, that equals the
+`--refresh` also brings up to date what an earlier run put there: a gate file, or a section, that equals the
 template of some released tag is replaced by the current one; one that equals no release is a local variant and
 is kept, with a note. It needs a checkout of this repository with its tags.
 
