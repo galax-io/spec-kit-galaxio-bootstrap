@@ -54,7 +54,7 @@ owned=(.claude/skills/speckit-* .agents/skills/speckit-* .specify/scripts .speci
 for d in "${owned[@]}"; do
   [ -e "$d" ] || continue
   find "$d" -type f \
-    ! -path '.specify/extensions/.registry' ! -path '.specify/extensions/.cache/*' ! -path '.specify/extensions/.backup/*' \
+    ! -path '*/__pycache__/*' ! -name '*.pyc' ! -path '.specify/extensions/.registry' ! -path '.specify/extensions/.cache/*' ! -path '.specify/extensions/.backup/*' \
     ! -path '.specify/extensions/*/local-config.yml' ! -path '.specify/presets/.registry' \
     ! -path '.specify/integrations/*.manifest.json' ! -path '.specify/integrations/packages/*' \
     ! -path '.specify/integrations/packages.json' ! -path '.specify/workflows/workflow-registry.json'

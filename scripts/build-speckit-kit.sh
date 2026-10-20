@@ -11,7 +11,7 @@
 # no two repositories can hold different skills.
 #
 # Left out because they differ on every run (time stamps, hashes of the files
-# written) or belong to one checkout: the registries and integration manifests
+# written, Python's __pycache__) or belong to one checkout: the registries and integration manifests
 # of the CLI, the extension cache and backups, feature.json. Whatever of that a
 # repository holds is removed by adopt.sh --speckit and ignored by git.
 #
@@ -69,6 +69,7 @@ rm -f "$work/setup-speckit.sh" "$work/speckit-install.log"
 # 2. The files of the kit.
 list="$work/.kit-files"
 ( cd "$work" && find .claude/skills .agents/skills .specify -type f \
+    ! -path '*/__pycache__/*' ! -name '*.pyc' \
     ! -path '.specify/extensions/.registry' \
     ! -path '.specify/extensions/.cache/*' \
     ! -path '.specify/extensions/.backup/*' \
