@@ -10,7 +10,8 @@ Copier template that stamps Galaxio's standard dev process — spec-kit, the iss
 
 Maintainer of a stack-agnostic Copier project template. Prefer minimal, reversible
 changes; keep generated output stable across every stack; never re-implement the
-linkage-gate scripts or setup-speckit.sh — they are copied verbatim.
+linkage-gate scripts — they are copied verbatim — and never edit the Spec Kit kit in `template/` by hand:
+`scripts/build-speckit-kit.sh` generates it.
 
 ## Stack
 
@@ -20,11 +21,11 @@ Copier (Jinja2 templates) + bash. No compiled artifact — the deliverable is
 ## Commands
 
 ```bash
-# lint    bash -n setup-speckit.sh bootstrap.sh scripts/check-linkage.sh scripts/adopt.sh .claude/hooks/linkage-guard.sh .githooks/pre-push
-# test    rc=0; for t in .claude/hooks/*_test.sh .githooks/*_test.sh scripts/*_test.sh; do bash "$t" || rc=1; done; [ "$rc" = 0 ]
+# lint    bash -n setup-speckit.sh bootstrap.sh scripts/check-linkage.sh scripts/adopt.sh scripts/build-speckit-kit.sh template/scripts/check-speckit.sh .claude/hooks/linkage-guard.sh .githooks/pre-push
+# test    rc=0; for t in .claude/hooks/*_test.sh .githooks/*_test.sh scripts/*_test.sh template/scripts/check-speckit_test.sh; do bash "$t" || rc=1; done; [ "$rc" = 0 ]
 # smoke   copier copy --trust --pretend --defaults --data project_name=X --data org_repo=o/r . /tmp/out
 # update  copier update --trust          # run inside a generated project
-# speckit bash setup-speckit.sh          # install spec-kit extensions/presets
+# speckit scripts/build-speckit-kit.sh [--check]   # regenerate the kit in template/ (Spec Kit 1.2.2, network); --check fails when it is stale
 ```
 
 ## Structure
@@ -34,7 +35,10 @@ Copier (Jinja2 templates) + bash. No compiled artifact — the deliverable is
      anything discoverable by looking; an exhaustive tree is noise and rots fast. -->
 - `copier.yml` — questions, stack-driven Jinja defaults, post-gen tasks
 - `template/` — render root (`_subdirectory`); `.jinja` files + verbatim scripts/hooks + per-stack stubs
-- `scripts/check-linkage.sh`, `.claude/hooks/linkage-guard.sh`, `.githooks/pre-push`, `setup-speckit.sh` — the verbatim sources
+- `scripts/check-linkage.sh`, `.claude/hooks/linkage-guard.sh`, `.githooks/pre-push` — the verbatim sources
+- `setup-speckit.sh` — installs Spec Kit for Claude Code and Codex; run by `scripts/build-speckit-kit.sh`, not copied into projects
+- `scripts/build-speckit-kit.sh` — generates the kit in `template/` (`.claude/skills`, `.agents/skills`, `.specify/`, `.specify/speckit-kit.sha256`)
+- `template/scripts/check-speckit.sh` — compares a project's kit with the manifest
 - `scripts/adopt.sh` — brings the process into an existing repository without replacing its files (not copied into projects)
 - `hooks/` — what `bootstrap.sh` copies; keep it byte-identical to `.claude/hooks/` and `.githooks/`
 - `README.md` — Copier usage + spec-kit component table + gotchas
@@ -43,8 +47,9 @@ Copier (Jinja2 templates) + bash. No compiled artifact — the deliverable is
 
 `copier.yml` defines the questions and Jinja defaults; `_subdirectory: template` is the
 render root. AGENTS.md/CLAUDE.md/.gitignore are templated; the linkage gate
-(`scripts/check-linkage.sh` + `.claude/hooks/linkage-guard.sh`) and `setup-speckit.sh`
-are copied byte-for-byte — never re-implemented. `.copier-answers.yml` records the
+(`scripts/check-linkage.sh` + `.claude/hooks/linkage-guard.sh`) are copied byte-for-byte —
+never re-implemented. The Spec Kit kit is generated, once, by `scripts/build-speckit-kit.sh` and shipped in `template/`,
+so that every project holds the same skills; CI fails when `template/` is not what the pinned CLI generates. `.copier-answers.yml` records the
 answers so `copier update` can re-apply later template changes without clobbering edits.
 
 ## Test Model
@@ -121,7 +126,7 @@ Route work by the reasoning it needs, not by habit; parallelize only where agent
 | exceptional | — | `gpt-6-astra` (xhigh) | only when the maintainer names it for a task; no agent and not the engine chooses it |
 
 - **Newest only.**
-  - When a newer model of a class appears, this table and every pin of it move to it in the same change: `.claude/settings.json`, `.claude/agents/`, `setup-speckit.sh`, and any code that routes models.
+  - When a newer model of a class appears, this table and every pin of it move to it in the same change: `.claude/settings.json`, `.claude/agents/`, `setup-speckit.sh` (in spec-kit-galaxio-bootstrap), and any code that routes models.
   - Luna and Astra stay at 6 because Codex refuses `gpt-6.1-luna` and `gpt-6.1-astra` to a ChatGPT account.
   - `gpt-6.1-sol` needs Codex CLI 0.162 or later.
   - Claude Code's own aliases and its background model are pinned to the table in `.claude/settings.json` (`env`: `ANTHROPIC_DEFAULT_OPUS_MODEL`, `…_SONNET_MODEL`, `…_HAIKU_MODEL`, `ANTHROPIC_SMALL_FAST_MODEL`). Without that pin its `haiku` alias means an older Haiku.
@@ -136,7 +141,7 @@ Route work by the reasoning it needs, not by habit; parallelize only where agent
   - `[tier:light]` mechanical work (`infra-worker`) and `[tier:trivial]` work (`trivial-worker`) may fan out freely.
   - Dependent tasks stay sequential.
 - **Pinned, not remembered.**
-  - `setup-speckit.sh` pins spec-kit skills to their tier; override with `SPECKIT_DEEP_MODEL` / `SPECKIT_LIGHT_MODEL`.
+  - The Spec Kit kit (`.claude/skills/speckit-*`, `.agents/skills/speckit-*`, `.specify/` but `.specify/memory/`) is the same in every repository: `scripts/build-speckit-kit.sh` of spec-kit-galaxio-bootstrap generates it, pins the Claude Code skills to their tier (override with `SPECKIT_DEEP_MODEL` / `SPECKIT_LIGHT_MODEL`), and it arrives with `copier update` (or `scripts/adopt.sh --speckit`). `scripts/check-speckit.sh` fails when this repository's kit differs; do not edit it here and do not run `specify extension`, `preset` or `integration` commands here. The constitution (`.specify/memory/constitution.md`) is this repository's own.
   - `.claude/agents/` defines the tiered sub-agents, each with its tier's model and `effort`.
   - Where a project routes models in code, it routes by this table: a task or stage names its tier, and each harness runs its own vendor's model of that tier. A model outside the table is an error.
 

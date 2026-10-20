@@ -40,8 +40,22 @@ differences for local edits.
               one that equals no release is a local variant and is kept ("kept:").
               Needs the template's git history (a checkout of the bootstrap repository).
 
+--speckit   only the Spec Kit kit, and unlike the rest it REPLACES: the repository gets the
+              template's skills (.claude/skills/speckit-*, .agents/skills/speckit-*) and
+              .specify/ byte for byte, so that every repository holds the same ones. A file
+              that differs is replaced ("updated:"), a file the kit does not have in the
+              directories it owns is removed ("removed:"), and so is the Specify CLI's state
+              (registries, cache, backups, integration manifests), which the kit does not
+              ship. Added, with the kit: .specify/speckit-kit.sha256, scripts/check-speckit.sh,
+              its test, .github/workflows/speckit.yml. Never touched: .specify/memory/ (the
+              constitution; its starting point is added only when missing), .specify/feature.json,
+              skills that are not speckit-* ones, and setup-speckit.sh (reported as obsolete).
+              Nothing else of the usual run happens. Run it again after every new template
+              release; with copier, `copier update` brings the same files.
+
 Usage:
   scripts/adopt.sh [--dry-run] [--refresh] [--org-repo owner/name] [--tagline TEXT] <repository-dir>
+  scripts/adopt.sh [--dry-run] --speckit <repository-dir>
 
 Env:
   TEMPLATE_DIR=dir   # the template to read (default: ../template next to this script)
@@ -52,6 +66,7 @@ EOF
 
 DRY=0
 REFRESH=0
+SPECKIT=0
 ORG_REPO=""
 TAGLINE=""
 TARGET=""
@@ -59,6 +74,7 @@ while [ $# -gt 0 ]; do
   case "$1" in
     --dry-run)  DRY=1 ;;
     --refresh)  REFRESH=1 ;;
+    --speckit)  SPECKIT=1 ;;
     --org-repo) shift; ORG_REPO="${1:-}"
                 [[ "$ORG_REPO" =~ ^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$ ]] || { echo "error: --org-repo needs owner/name" >&2; exit 2; } ;;
     --tagline)  shift; TAGLINE="${1:-}" ;;
@@ -88,6 +104,87 @@ NAME="${ORG_REPO#*/}"
 
 [ "$DRY" = 1 ] && echo "dry run: nothing is written"
 echo "Repository: $TARGET ($ORG_REPO)"
+
+# --speckit: the Spec Kit kit, byte for byte, and nothing else.
+if [ "$SPECKIT" = 1 ]; then
+  KIT_MANIFEST=".specify/speckit-kit.sha256"
+  [ -f "$TEMPLATE_DIR/$KIT_MANIFEST" ] || { echo "error: the template has no Spec Kit kit ($KIT_MANIFEST missing); generate it with scripts/build-speckit-kit.sh" >&2; exit 2; }
+  added=0; updated=0; removed=0; same=0
+  listed="$(mktemp)"; found="$(mktemp)"
+  trap 'rm -f "$listed" "$found"' EXIT
+
+  kit_put() { # path — make $TARGET/path the template's file
+    local path="$1" src="$TEMPLATE_DIR/$1"
+    [ -f "$src" ] || { echo "error: $path is in the kit but not in the template" >&2; exit 2; }
+    if [ ! -e "$TARGET/$path" ]; then
+      added=$((added + 1))
+    elif cmp -s "$src" "$TARGET/$path"; then
+      same=$((same + 1)); return 0
+    else
+      updated=$((updated + 1)); echo "updated: $path"
+    fi
+    [ "$DRY" = 1 ] || { mkdir -p "$(dirname "$TARGET/$path")"; cp -p "$src" "$TARGET/$path"; }
+  }
+  kit_remove() { # path
+    removed=$((removed + 1)); echo "removed: $1"
+    [ "$DRY" = 1 ] || rm -f "$TARGET/$1"
+  }
+
+  # The files of the kit, and the file that lists them.
+  while read -r _hash path; do
+    [ -n "$path" ] || continue
+    printf '%s\n' "$path" >> "$listed"
+    kit_put "$path"
+  done < "$TEMPLATE_DIR/$KIT_MANIFEST"
+  printf '%s\n' "$KIT_MANIFEST" >> "$listed"
+  kit_put "$KIT_MANIFEST"
+  # What goes with the kit: its check, the check's test, the workflow that runs it.
+  for f in scripts/check-speckit.sh scripts/check-speckit_test.sh .github/workflows/speckit.yml; do
+    if [ -f "$TEMPLATE_DIR/$f" ]; then kit_put "$f"; fi
+  done
+  # The constitution is the repository's own: its starting point only when there is none.
+  for f in .specify/memory/constitution.md .specify/memory/.constitution-template.json; do
+    if [ -f "$TEMPLATE_DIR/$f" ] && [ ! -e "$TARGET/$f" ]; then kit_put "$f"; fi
+  done
+
+  # The Specify CLI's state: it differs on every run, the kit does not ship it.
+  state="$(mktemp)"
+  ( cd "$TARGET" && {
+      for f in .specify/extensions/.registry .specify/presets/.registry .specify/workflows/workflow-registry.json; do
+        if [ -f "$f" ]; then echo "$f"; fi
+      done
+      for d in .specify/extensions/.cache .specify/extensions/.backup; do
+        if [ -d "$d" ]; then find "$d" -type f; fi
+      done
+      if [ -d .specify/integrations ]; then find .specify/integrations -maxdepth 1 -type f -name '*.manifest.json'; fi
+    } | LC_ALL=C sort ) > "$state"
+  while read -r f; do
+    kit_remove "$f"
+  done < "$state"
+  rm -f "$state"
+
+  # What the kit owns and does not list: a skill or a script of an older Spec Kit.
+  sort -o "$listed" "$listed"
+  ( cd "$TARGET" && for d in .claude/skills/speckit-* .agents/skills/speckit-* .specify/scripts .specify/templates \
+        .specify/extensions .specify/presets .specify/workflows .specify/integrations; do
+      [ -e "$d" ] || continue
+      find "$d" -type f \
+        ! -path '.specify/extensions/.registry' ! -path '.specify/extensions/.cache/*' ! -path '.specify/extensions/.backup/*' \
+        ! -path '.specify/extensions/*/local-config.yml' ! -path '.specify/presets/.registry' \
+        ! -path '.specify/integrations/*.manifest.json' ! -path '.specify/integrations/packages/*' \
+        ! -path '.specify/integrations/packages.json' ! -path '.specify/workflows/workflow-registry.json'
+    done | LC_ALL=C sort ) > "$found"
+  while read -r f; do
+    kit_remove "$f"
+  done < <(LC_ALL=C comm -23 "$found" "$listed")
+  if [ "$DRY" = 0 ]; then
+    ( cd "$TARGET" && for d in .claude/skills .agents/skills .specify; do [ -d "$d" ] && find "$d" -type d -empty -delete; done ) || true
+  fi
+
+  echo "kit: $added added, $updated updated, $removed removed, $same unchanged"
+  [ ! -e "$TARGET/setup-speckit.sh" ] || echo "note: setup-speckit.sh is obsolete (the kit is generated in spec-kit-galaxio-bootstrap, nothing installs Spec Kit here); delete it"
+  exit 0
+fi
 
 # The sections the process adds to a project's instructions.
 FEATURES="Feature milestones (ALWAYS)"

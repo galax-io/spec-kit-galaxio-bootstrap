@@ -20,6 +20,12 @@ set -euo pipefail
 command -v specify >/dev/null 2>&1 || {
   echo "error: 'specify' CLI not found on PATH. Install spec-kit first." >&2; exit 2; }
 
+# Codex alongside Claude Code needs `specify integration use`, which 1.2.2 has.
+MIN_SPECKIT=1.2.2
+have=$(specify version 2>/dev/null | sed -n 's/.*CLI Version[^0-9]*\([0-9][0-9.]*\).*/\1/p')
+[[ -n "$have" && "$(printf '%s\n' "$MIN_SPECKIT" "$have" | sort -V | head -1)" == "$MIN_SPECKIT" ]] || {
+  echo "error: spec-kit $MIN_SPECKIT or later is required (found ${have:-unknown}); run 'specify self upgrade'." >&2; exit 2; }
+
 FORCE_FLAG=""
 [[ "${1:-}" == "--force" ]] && FORCE_FLAG="--force"
 
@@ -108,7 +114,30 @@ run_preset claude-ask-questions  claude-ask-questions \
   --from "$(gh_zip 0xrafasec/spec-kit-preset-claude-ask-questions v1.0.0)"
 
 echo
+echo "==> Integrations (Claude Code default, Codex alongside)"
+# Spec Kit writes extension and preset skills into the default integration only
+# (.claude/skills for Claude Code, .agents/skills for Codex). Each integration
+# takes a turn as the default so both get every skill, and Claude Code ends as
+# the default. A turn rewrites the skills it lays, so the model pins run after.
+run_integration() {   # label  <integration-args...>
+  local label="$1"; shift
+  local out rc=0
+  out=$(specify integration "$@" 2>&1) || rc=$?
+  if [[ $rc -eq 0 ]]; then
+    echo "  ✓  $label"
+  else
+    echo "  ✗  $label"; echo "$out" | sed 's/^/      /'; FAILED+=("$label")
+  fi
+}
+grep -q '"codex"' .specify/integration.json 2>/dev/null \
+  || run_integration "codex installed" install codex --script sh
+run_integration "codex skills" use codex
+run_integration "claude skills (default)" use claude
+
+echo
 echo "==> Model tiers (pin skills to the model their work needs)"
+# Claude Code skills only: Codex reads no `model:` line, its tier comes from how
+# Codex is run (see AGENTS.md, "Agents & Models").
 # Deep: research, specs, plans, verification. Light: task generation and
 # mechanical bookkeeping. Unpinned skills (implement, bug-fix, ...) inherit the
 # session model and dispatch tiered sub-agents per task (see AGENTS.md).
