@@ -141,6 +141,13 @@ out="$(run "$d")"; rc=$?
 check "an overlay path the kit does not list fails" "$([ "$rc" = 1 ] && echo 0 || echo 1)" "rc=$rc: $out"
 check "  and is named OVERLAY" "$(grep -q 'OVERLAY .claude/skills/speckit-plan/other.md' <<<"$out" && echo 0 || echo 1)" "$out"
 
+d="$(new_repo overlay-regex-path)"
+mkdir -p "$d/.claude/skills/speckit-c++"; printf 'c\n' > "$d/.claude/skills/speckit-c++/SKILL.md"
+( cd "$d" && sha256 .claude/skills/speckit-c++/SKILL.md >> .specify/speckit-kit.sha256 && cp .specify/speckit-kit.sha256 /dev/null
+  printf 'layered\n' > .claude/skills/speckit-c++/SKILL.md; sha256 .claude/skills/speckit-c++/SKILL.md > .specify/speckit-overlay.sha256 )
+out="$(run "$d")"; rc=$?
+check "an overlay path with regex characters in it is matched literally" "$rc" "rc=$rc: $out"
+
 d="$(new_repo no-overlay-edit)"
 printf 'plan skill with a layer\n' > "$d/.claude/skills/speckit-plan/SKILL.md"
 out="$(run "$d")"; rc=$?

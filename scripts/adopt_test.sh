@@ -535,6 +535,11 @@ check "layer: an unknown layer is refused" $([ "$rc" -eq 2 ] && has 'no layer' &
 mkdir -p "$tmp/layers/stray/.specify"; printf '%s  %s\n' "$(printf x | shasum -a 256 | cut -d' ' -f1)" .claude/skills/speckit-new/SKILL.md > "$tmp/layers/stray/.specify/speckit-overlay.sha256"
 run3 --speckit --overlay stray "$repo"
 check "layer: a layer that replaces a file the kit lacks is refused" $([ "$rc" -eq 2 ] && has 'does not have' && echo 0 || echo 1) "rc=$rc out=$out"
+run3 --speckit --overlay .. "$repo"
+check "layer: '..' is refused as a name" $([ "$rc" -eq 2 ] && has 'needs the name' && echo 0 || echo 1) "rc=$rc out=$out"
+cp -R "$lay" "$tmp/layers/drift"; printf 'edited after the build\n' > "$tmp/layers/drift/.claude/skills/speckit-plan/SKILL.md"
+run3 --speckit --overlay drift "$repo"
+check "layer: a layer file that is not what its manifest lists is refused" $([ "$rc" -eq 2 ] && has 'not what the layer' && echo 0 || echo 1) "rc=$rc out=$out"
 run3 --speckit --overlay '../x' "$repo"
 check "layer: a name that is a path is refused" $([ "$rc" -eq 2 ] && echo 0 || echo 1) "rc=$rc out=$out"
 

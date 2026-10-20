@@ -16,7 +16,7 @@
 # Usage:
 #   scripts/build-speckit-layer.sh <name>           # rewrite layers/<name>/
 #   scripts/build-speckit-layer.sh --check <name>   # fail when layers/<name>/ is not what the CLI generates
-#   scripts/build-speckit-layer.sh --compose <kit-skill> <cli-skill> <out>   # one skill, no CLI (for the tests)
+#   scripts/build-speckit-layer.sh --compose <kit-skill> <cli-skill> <out> <preset-command>   # one skill, no CLI (for the tests)
 #
 # Needs the `specify` CLI at exactly KIT_VERSION of build-speckit-kit.sh, and git.
 
@@ -38,9 +38,12 @@ frontmatter() { awk '/^---$/{c++} c<2{print} c==2&&/^---$/{print; exit}' "$1"; }
 # Its body with no blank line at either end.
 body() { awk 'c>=2{print} /^---$/{c++}' "$1" | sed -e :a -e '/^[[:space:]]*$/{$d;N;ba' -e '}' | sed '/./,$!d'; }
 
-# compose <kit skill> <cli skill> <out>: the kit's frontmatter, then the CLI's body once it is shown to hold the kit's whole.
+squeeze() { tr -d '[:space:]'; }
+
+# compose <kit skill> <cli skill> <out> <preset command>: the kit's frontmatter, then the CLI's body once it is shown
+# to hold the kit's whole with the preset's text, and nothing else, before and after it.
 compose() {
-  local kit="$1" cli="$2" out="$3" kb cb before after
+  local kit="$1" cli="$2" out="$3" preset="$4" kb cb before after pbefore pafter
   [ "$(frontmatter "$kit" | wc -l)" -ge 2 ] || { echo "error: $kit has no frontmatter" >&2; return 1; }
   kb="$(body "$kit")"; cb="$(body "$cli")"
   [ -n "$kb" ] || { echo "error: $kit has no body" >&2; return 1; }
@@ -48,19 +51,25 @@ compose() {
   before="${cb%%"$kb"*}"; after="${cb#*"$kb"}"
   [[ "$before" == *"$BEFORE_MARK"* ]] || { echo "error: the preset's text is not before the kit's command" >&2; return 1; }
   [[ "$after" == *"$AFTER_MARK"* ]] || { echo "error: the preset's text is not after the kit's command" >&2; return 1; }
+  # The CLI adds a heading before the preset's text; whatever else it adds, or whatever of the preset it loses, fails.
+  pbefore="$(sed '/{CORE_TEMPLATE}/,$d' "$preset" | squeeze)"; pafter="$(sed '1,/{CORE_TEMPLATE}/d' "$preset" | squeeze)"
+  [ -n "$pbefore" ] && [ -n "$pafter" ] || { echo "error: $preset has no text before and after {CORE_TEMPLATE}" >&2; return 1; }
+  before="$(printf '%s' "$before" | squeeze)"; after="$(printf '%s' "$after" | squeeze)"
+  [[ "$before" == *"$pbefore" ]] || { echo "error: the text before the kit's command is not the preset's" >&2; return 1; }
+  [ "$after" = "$pafter" ] || { echo "error: the text after the kit's command is not the preset's" >&2; return 1; }
   mkdir -p "$(dirname "$out")"
   { frontmatter "$kit"; echo; printf '%s\n' "$cb"; } > "$out"
 }
 
 mode=write
 case "${1:-}" in
-  --compose) [ $# -eq 4 ] || { echo "error: --compose takes <kit-skill> <cli-skill> <out>" >&2; exit 2; }; compose "$2" "$3" "$4"; exit ;;
+  --compose) [ $# -eq 5 ] || { echo "error: --compose takes <kit-skill> <cli-skill> <out> <preset-command>" >&2; exit 2; }; compose "$2" "$3" "$4" "$5"; exit ;;
   --check) mode=check; shift ;;
   --help|-h) sed -n '2,/^$/p' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//'; exit 0 ;;
   -*) echo "error: unknown argument '$1'" >&2; exit 2 ;;
 esac
 name="${1:-}"
-[ -n "$name" ] && [ -d "$root/presets/$name" ] || { echo "error: no preset '${name}' under presets/" >&2; exit 2; }
+[[ "$name" =~ ^[A-Za-z0-9_][A-Za-z0-9_.-]*$ ]] && [ -d "$root/presets/$name" ] || { echo "error: no preset '${name}' under presets/" >&2; exit 2; }
 [ $# -eq 1 ] || { echo "error: one preset name" >&2; exit 2; }
 
 KIT_VERSION="$(sed -n 's/^KIT_VERSION=//p' "$here/build-speckit-kit.sh")"
@@ -71,9 +80,8 @@ have="$(specify version 2>/dev/null | sed -n 's/.*CLI Version[^0-9]*\([0-9][0-9.
 stage="$(mktemp -d)"; log="$(mktemp)"
 trap 'rm -rf "$stage" "$log"' EXIT
 
-for pair in claude:.claude agents:.agents; do
+for pair in claude:.claude codex:.agents; do
   integration="${pair%%:*}"; dir="${pair#*:}"
-  [ "$integration" = agents ] && integration=codex
   work="$stage/work-$integration"
   mkdir -p "$work"
   tar -cf - -C "$template" .claude/skills .agents/skills .specify | tar -xf - -C "$work"
@@ -81,7 +89,7 @@ for pair in claude:.claude agents:.agents; do
     tail -30 "$log" >&2; echo "error: the CLI could not install the preset for $integration" >&2; exit 1
   fi
   skill="$dir/skills/$COMMAND_DIR/SKILL.md"
-  compose "$template/$skill" "$work/$skill" "$stage/layer/$skill" || exit 1
+  compose "$template/$skill" "$work/$skill" "$stage/layer/$skill" "$root/presets/$name/commands/speckit.specify.md" || exit 1
 done
 
 ( cd "$stage/layer" && mkdir -p .specify \

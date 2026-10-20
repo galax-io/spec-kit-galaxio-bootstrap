@@ -84,7 +84,7 @@ while [ $# -gt 0 ]; do
     --refresh)  REFRESH=1 ;;
     --speckit)  SPECKIT=1 ;;
     --overlay)  shift; OVERLAY_NAME="${1:-}"
-                [[ "$OVERLAY_NAME" =~ ^[A-Za-z0-9_.-]+$ ]] || { echo "error: --overlay needs the name of a layer" >&2; exit 2; } ;;
+                [[ "$OVERLAY_NAME" =~ ^[A-Za-z0-9_][A-Za-z0-9_.-]*$ ]] || { echo "error: --overlay needs the name of a layer" >&2; exit 2; } ;;
     --org-repo) shift; ORG_REPO="${1:-}"
                 [[ "$ORG_REPO" =~ ^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$ ]] || { echo "error: --org-repo needs owner/name" >&2; exit 2; } ;;
     --tagline)  shift; TAGLINE="${1:-}" ;;
@@ -129,10 +129,12 @@ if [ "$SPECKIT" = 1 ]; then
   LAYER=""; layered="$(mktemp)"
   if [ -n "$OVERLAY_NAME" ]; then
     LAYER="$SRC/layers/$OVERLAY_NAME"
+    if command -v sha256sum >/dev/null 2>&1; then layer_hash() { sha256sum "$1" | cut -d' ' -f1; }; else layer_hash() { shasum -a 256 "$1" | cut -d' ' -f1; }; fi
     [ -f "$LAYER/$OVERLAY_MANIFEST" ] || { echo "error: no layer '$OVERLAY_NAME' ($LAYER/$OVERLAY_MANIFEST missing); generate it with scripts/build-speckit-layer.sh" >&2; exit 2; }
     while read -r _hash path; do
       [ -n "$path" ] || continue
-      grep -qF -- " $path" "$TEMPLATE_DIR/$KIT_MANIFEST" || { echo "error: the layer replaces $path, which the kit does not have" >&2; exit 2; }
+      awk -v p="$path" '$2 == p {found = 1} END {exit !found}' "$TEMPLATE_DIR/$KIT_MANIFEST" || { echo "error: the layer replaces $path, which the kit does not have" >&2; exit 2; }
+      [ -f "$LAYER/$path" ] && [ "$(layer_hash "$LAYER/$path")" = "$_hash" ] || { echo "error: $LAYER/$path is not what the layer's manifest lists; regenerate it with scripts/build-speckit-layer.sh" >&2; exit 2; }
       printf '%s\n' "$path" >> "$layered"
     done < "$LAYER/$OVERLAY_MANIFEST"
   fi

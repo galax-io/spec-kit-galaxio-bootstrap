@@ -21,26 +21,34 @@ bad() { printf '  ✗ %s\n     %s\n' "$1" "$2"; fail=$((fail + 1)); }
 check() { if [ "$2" -eq 0 ]; then ok "$1"; else bad "$1" "$3"; fi; }
 
 printf -- '---\nname: "speckit-specify"\nmodel: opus\n---\n\n## User Input\n\nDo the thing.\n' > "$tmp/kit.md"
+printf '## Before you specify\n\nsteps\n\n{CORE_TEMPLATE}\n\n## After you specify\n\nchecks\n' > "$tmp/preset.md"
 good() { printf -- '---\nname: other\n---\n\n# Skill\n\n## Before you specify\n\nsteps\n\n## User Input\n\nDo the thing.\n\n## After you specify\n\nchecks\n'; }
 
 echo "compose"
 good > "$tmp/cli.md"
-bash "$script" --compose "$tmp/kit.md" "$tmp/cli.md" "$tmp/out.md" 2>"$tmp/err"; check "a CLI skill that holds the kit's command whole composes" $? "$(cat "$tmp/err")"
+bash "$script" --compose "$tmp/kit.md" "$tmp/cli.md" "$tmp/out.md" "$tmp/preset.md" 2>"$tmp/err"; check "a CLI skill that holds the kit's command whole composes" $? "$(cat "$tmp/err")"
 grep -q '^model: opus$' "$tmp/out.md" && grep -q '^name: "speckit-specify"$' "$tmp/out.md"; check "the kit's frontmatter and model pin are kept, not the CLI's" $? "$(cat "$tmp/out.md")"
 ! grep -q 'name: other' "$tmp/out.md"; check "the CLI's frontmatter is dropped" $? ""
 awk '/^## User Input/,/^## After/' "$tmp/out.md" | grep -q 'Do the thing.'; check "the kit's command is inside the result" $? ""
-bash "$script" --compose "$tmp/kit.md" "$tmp/cli.md" "$tmp/out2.md" 2>/dev/null; cmp -s "$tmp/out.md" "$tmp/out2.md"; check "composing twice gives the same file" $? ""
+bash "$script" --compose "$tmp/kit.md" "$tmp/cli.md" "$tmp/out2.md" "$tmp/preset.md" 2>/dev/null; cmp -s "$tmp/out.md" "$tmp/out2.md"; check "composing twice gives the same file" $? ""
 
+good | sed 's/^checks$/checks and something else/' > "$tmp/extra-after.md"
+bash "$script" --compose "$tmp/kit.md" "$tmp/extra-after.md" "$tmp/o" "$tmp/preset.md" 2>"$tmp/err"; [ $? -ne 0 ] && grep -q 'after the kit.s command is not the preset' "$tmp/err"; check "text after the command that is not the preset's fails" $? "$(cat "$tmp/err")"
+good | sed 's/^steps$/other steps/' > "$tmp/other-before.md"
+bash "$script" --compose "$tmp/kit.md" "$tmp/other-before.md" "$tmp/o" "$tmp/preset.md" 2>"$tmp/err"; [ $? -ne 0 ] && grep -q 'before the kit.s command is not the preset' "$tmp/err"; check "text before the command that is not the preset's fails" $? "$(cat "$tmp/err")"
 good | sed 's/Do the thing\./Do another thing./' > "$tmp/changed.md"
-bash "$script" --compose "$tmp/kit.md" "$tmp/changed.md" "$tmp/o" 2>"$tmp/err"; [ $? -ne 0 ] && grep -q 'does not hold the kit' "$tmp/err"; check "a CLI skill that changed the kit's command fails" $? "$(cat "$tmp/err")"
+bash "$script" --compose "$tmp/kit.md" "$tmp/changed.md" "$tmp/o" "$tmp/preset.md" 2>"$tmp/err"; [ $? -ne 0 ] && grep -q 'does not hold the kit' "$tmp/err"; check "a CLI skill that changed the kit's command fails" $? "$(cat "$tmp/err")"
 good | sed '/^## Before you specify/,/^steps/d' > "$tmp/nobefore.md"
-bash "$script" --compose "$tmp/kit.md" "$tmp/nobefore.md" "$tmp/o" 2>"$tmp/err"; [ $? -ne 0 ] && grep -q 'not before' "$tmp/err"; check "no preset text before the command fails" $? "$(cat "$tmp/err")"
+bash "$script" --compose "$tmp/kit.md" "$tmp/nobefore.md" "$tmp/o" "$tmp/preset.md" 2>"$tmp/err"; [ $? -ne 0 ] && grep -q 'not before' "$tmp/err"; check "no preset text before the command fails" $? "$(cat "$tmp/err")"
 good | sed '/^## After you specify/,$d' > "$tmp/noafter.md"
-bash "$script" --compose "$tmp/kit.md" "$tmp/noafter.md" "$tmp/o" 2>"$tmp/err"; [ $? -ne 0 ] && grep -q 'not after' "$tmp/err"; check "no preset text after the command fails" $? "$(cat "$tmp/err")"
+bash "$script" --compose "$tmp/kit.md" "$tmp/noafter.md" "$tmp/o" "$tmp/preset.md" 2>"$tmp/err"; [ $? -ne 0 ] && grep -q 'not after' "$tmp/err"; check "no preset text after the command fails" $? "$(cat "$tmp/err")"
 printf 'no frontmatter\n' > "$tmp/nofm.md"
-bash "$script" --compose "$tmp/nofm.md" "$tmp/cli.md" "$tmp/o" 2>/dev/null; [ $? -ne 0 ]; check "a kit skill with no frontmatter fails" $? ""
-bash "$script" --compose a b 2>/dev/null; [ $? -eq 2 ]; check "--compose with the wrong arguments is a usage error" $? ""
+bash "$script" --compose "$tmp/nofm.md" "$tmp/cli.md" "$tmp/o" "$tmp/preset.md" 2>/dev/null; [ $? -ne 0 ]; check "a kit skill with no frontmatter fails" $? ""
+bash "$script" --compose a b c 2>/dev/null; [ $? -eq 2 ]; check "--compose with the wrong arguments is a usage error" $? ""
 bash "$script" nosuchpreset 2>/dev/null; [ $? -eq 2 ]; check "an unknown preset is a usage error" $? ""
+mkdir -p "$tmp/up/presets/x"; cp "$script" "$tmp/up/"
+bash "$script" ../presets/spec-across-repositories 2>"$tmp/err"; [ $? -eq 2 ]; check "a preset name that is a path is a usage error" $? "$(cat "$tmp/err")"
+bash "$script" .. 2>/dev/null; [ $? -eq 2 ]; check "'..' is not a preset name" $? ""
 
 echo "the preset's text (spec 296)"
 cmd="$root/presets/spec-across-repositories/commands/speckit.specify.md"
@@ -51,7 +59,8 @@ has "the part after is marked" '## After you specify'
 has "FR-002 the directory by the issue number" 'specs/<number of the feature'"'"'s issue>-<short name>'
 has "FR-002 SPECIFY_FEATURE_DIRECTORY is set" 'SPECIFY_FEATURE_DIRECTORY'
 has "FR-003 the engine's information" '`ecosystem`'
-has "FR-003 it stops when the information is missing" 'stop before writing anything'
+has "FR-003 an engine run is told by its run input" 'task came with a run input'
+has "FR-003 it stops when the information is missing" 'stop before writing'
 has "FR-003 by hand it reads the catalog" 'catalog-info.yaml'
 has "FR-004 the three verdicts" '`затронут`'
 has "FR-004 unclear stays" '`неясно`'

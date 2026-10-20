@@ -47,24 +47,27 @@ report() { printf '%s %s\n' "$1" "$2"; problems=$((problems + 1)); }
 
 listed="$(mktemp)"; trap 'rm -f "$listed"' EXIT
 
-# The layer's hash for a path, if the repository has one; the kit's hash is then not the one to meet.
-over() { [ -f "$OVERLAY" ] && awk -v p="$1" '$2 == p {print $1; exit}' "$OVERLAY"; }
+# The hashes to meet: the kit's, with the layer's in place of the kit's for the paths the layer lists.
+# A path the layer lists that the kit does not is reported once, here.
+expected="$(mktemp)"; trap 'rm -f "$listed" "$expected"' EXIT
 if [ -f "$OVERLAY" ]; then
-  while read -r hash path; do
-    [ -n "$path" ] || continue
-    grep -qE "^[0-9a-f]+ +$(printf '%s' "$path" | sed 's/[.[\*^$/]/\\&/g')\$" "$MANIFEST" || report OVERLAY "$path"
-  done < "$OVERLAY"
+  awk 'NR == FNR { if (NF >= 2) over[$2] = $1; next }
+       { if ($2 in over) { $1 = over[$2]; seen[$2] = 1 } print }
+       END { for (p in over) if (!(p in seen)) print "OVERLAY", p > "/dev/stderr" }' "$OVERLAY" "$MANIFEST" > "$expected" 2> "$expected.problems"
+  while read -r _ path; do report OVERLAY "$path"; done < "$expected.problems"
+  rm -f "$expected.problems"
+else
+  cp "$MANIFEST" "$expected"
 fi
 
 while read -r hash path; do
   [ -n "$path" ] || continue
   printf '%s\n' "$path" >> "$listed"
-  layered="$(over "$path")"; [ -z "$layered" ] || hash="$layered"
   if [ -L "$path" ] && [ ! -e "$path" ]; then report MISSING "$path"
   elif [ ! -f "$path" ]; then report MISSING "$path"
   elif [ "$(sha256 "$path")" != "$hash" ]; then report MODIFIED "$path"
   fi
-done < "$MANIFEST"
+done < "$expected"
 printf '%s\n' "$MANIFEST" >> "$listed"
 [ -f "$OVERLAY" ] && printf '%s\n' "$OVERLAY" >> "$listed"
 sort -o "$listed" "$listed"
