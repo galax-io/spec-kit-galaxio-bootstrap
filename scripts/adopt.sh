@@ -53,9 +53,16 @@ differences for local edits.
               Nothing else of the usual run happens. Run it again after every new template
               release; with copier, `copier update` brings the same files.
 
+--overlay NAME   with --speckit: put the layer layers/NAME/ of this checkout on top of the kit,
+              its skill files over the kit's and .specify/speckit-overlay.sha256 with their
+              hashes, so that scripts/check-speckit.sh accepts them. A layer is a few kit
+              files that a preset changed (scripts/build-speckit-layer.sh). Without --overlay,
+              --speckit takes the layer away: the overlay manifest is removed and the kit is
+              the template's again.
+
 Usage:
   scripts/adopt.sh [--dry-run] [--refresh] [--org-repo owner/name] [--tagline TEXT] <repository-dir>
-  scripts/adopt.sh [--dry-run] --speckit <repository-dir>
+  scripts/adopt.sh [--dry-run] --speckit [--overlay NAME] <repository-dir>
 
 Env:
   TEMPLATE_DIR=dir   # the template to read (default: ../template next to this script)
@@ -67,6 +74,7 @@ EOF
 DRY=0
 REFRESH=0
 SPECKIT=0
+OVERLAY_NAME=""
 ORG_REPO=""
 TAGLINE=""
 TARGET=""
@@ -75,6 +83,8 @@ while [ $# -gt 0 ]; do
     --dry-run)  DRY=1 ;;
     --refresh)  REFRESH=1 ;;
     --speckit)  SPECKIT=1 ;;
+    --overlay)  shift; OVERLAY_NAME="${1:-}"
+                [[ "$OVERLAY_NAME" =~ ^[A-Za-z0-9_.-]+$ ]] || { echo "error: --overlay needs the name of a layer" >&2; exit 2; } ;;
     --org-repo) shift; ORG_REPO="${1:-}"
                 [[ "$ORG_REPO" =~ ^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$ ]] || { echo "error: --org-repo needs owner/name" >&2; exit 2; } ;;
     --tagline)  shift; TAGLINE="${1:-}" ;;
@@ -86,6 +96,7 @@ while [ $# -gt 0 ]; do
 done
 
 [ -n "$TARGET" ] || { echo "error: name the repository directory" >&2; usage >&2; exit 2; }
+[ -z "$OVERLAY_NAME" ] || [ "$SPECKIT" = 1 ] || { echo "error: --overlay goes with --speckit" >&2; exit 2; }
 [ -d "$TARGET" ] || { echo "error: '$TARGET' is not a directory" >&2; exit 2; }
 [ -f "$TEMPLATE_DIR/AGENTS.md.jinja" ] || { echo "error: no template at '$TEMPLATE_DIR' (AGENTS.md.jinja missing)" >&2; exit 2; }
 TARGET="$(cd "$TARGET" && pwd)"
@@ -111,10 +122,24 @@ if [ "$SPECKIT" = 1 ]; then
   [ -f "$TEMPLATE_DIR/$KIT_MANIFEST" ] || { echo "error: the template has no Spec Kit kit ($KIT_MANIFEST missing); generate it with scripts/build-speckit-kit.sh" >&2; exit 2; }
   added=0; updated=0; removed=0; same=0
   listed="$(mktemp)"; found="$(mktemp)"
-  trap 'rm -f "$listed" "$found"' EXIT
+  trap 'rm -f "$listed" "$found" "$layered"' EXIT
 
-  kit_put() { # path — make $TARGET/path the template's file
+  # The layer, if one is asked for: the paths it replaces, and where it is.
+  OVERLAY_MANIFEST=".specify/speckit-overlay.sha256"
+  LAYER=""; layered="$(mktemp)"
+  if [ -n "$OVERLAY_NAME" ]; then
+    LAYER="$SRC/layers/$OVERLAY_NAME"
+    [ -f "$LAYER/$OVERLAY_MANIFEST" ] || { echo "error: no layer '$OVERLAY_NAME' ($LAYER/$OVERLAY_MANIFEST missing); generate it with scripts/build-speckit-layer.sh" >&2; exit 2; }
+    while read -r _hash path; do
+      [ -n "$path" ] || continue
+      grep -qF -- " $path" "$TEMPLATE_DIR/$KIT_MANIFEST" || { echo "error: the layer replaces $path, which the kit does not have" >&2; exit 2; }
+      printf '%s\n' "$path" >> "$layered"
+    done < "$LAYER/$OVERLAY_MANIFEST"
+  fi
+
+  kit_put() { # path — make $TARGET/path the template's file, or the layer's when the layer replaces it
     local path="$1" src="$TEMPLATE_DIR/$1"
+    if grep -qxF -- "$path" "$layered"; then src="$LAYER/$path"; fi
     [ -f "$src" ] || { echo "error: $path is in the kit but not in the template" >&2; exit 2; }
     if [ -L "$TARGET/$path" ]; then
       # An extension's dev directory linked instead of copied; a dangling link cannot be written through.
@@ -142,6 +167,14 @@ if [ "$SPECKIT" = 1 ]; then
   done < "$TEMPLATE_DIR/$KIT_MANIFEST"
   printf '%s\n' "$KIT_MANIFEST" >> "$listed"
   kit_put "$KIT_MANIFEST"
+  # The layer's manifest goes with its files; without a layer, one left by an earlier run is taken away.
+  if [ -n "$OVERLAY_NAME" ]; then
+    printf '%s\n' "$OVERLAY_MANIFEST" >> "$listed"
+    echo "$OVERLAY_MANIFEST" >> "$layered"
+    kit_put "$OVERLAY_MANIFEST"
+  elif [ -e "$TARGET/$OVERLAY_MANIFEST" ]; then
+    kit_remove "$OVERLAY_MANIFEST"
+  fi
   # What goes with the kit: its check, the check's test, the workflow that runs it.
   for f in scripts/check-speckit.sh scripts/check-speckit_test.sh .github/workflows/speckit.yml; do
     if [ -f "$TEMPLATE_DIR/$f" ]; then kit_put "$f"; fi

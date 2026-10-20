@@ -25,7 +25,7 @@ jobs:
           persist-credentials: false
       - name: lint
         run: |
-          for f in setup-speckit.sh bootstrap.sh scripts/check-linkage.sh scripts/adopt.sh scripts/build-speckit-kit.sh template/scripts/check-speckit.sh .claude/hooks/linkage-guard.sh .githooks/pre-push; do
+          for f in setup-speckit.sh bootstrap.sh scripts/check-linkage.sh scripts/adopt.sh scripts/build-speckit-kit.sh scripts/build-speckit-layer.sh template/scripts/check-speckit.sh .claude/hooks/linkage-guard.sh .githooks/pre-push; do
             bash -n "$f"
           done
       - name: tests
@@ -49,3 +49,20 @@ jobs:
           pipx install "git+https://github.com/github/spec-kit.git@v${version}"
       - name: template/ is what Spec Kit generates
         run: bash scripts/build-speckit-kit.sh --check
+
+  layer:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: install Spec Kit at the version the kit is built with
+        run: |
+          version="$(sed -n 's/^KIT_VERSION=//p' scripts/build-speckit-kit.sh)"
+          pipx install "git+https://github.com/github/spec-kit.git@v${version}"
+      - name: layers/ are what Spec Kit generates from presets/
+        run: |
+          for p in presets/*/; do
+            bash scripts/build-speckit-layer.sh --check "$(basename "$p")"
+          done

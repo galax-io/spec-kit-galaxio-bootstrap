@@ -504,5 +504,39 @@ write AGENTS.md $'# Mine\n'
 run3 --dry-run --speckit "$repo"
 check "kit-ignore: --dry-run writes no .gitignore" $([ ! -e "$repo/.gitignore" ] && has '.gitignore' && echo 0 || echo 1) "out=$out"
 
+# K9. --overlay: a layer's skills go over the kit's, with their manifest; --speckit alone takes them away
+lay="$tmp/layers/over"; rm -rf "$lay"; mkdir -p "$lay/.claude/skills/speckit-plan" "$lay/.agents/skills/speckit-plan" "$lay/.specify"
+printf 'plan skill with a layer\n' > "$lay/.claude/skills/speckit-plan/SKILL.md"
+printf 'plan skill for codex with a layer\n' > "$lay/.agents/skills/speckit-plan/SKILL.md"
+( cd "$lay" && shasum -a 256 .agents/skills/speckit-plan/SKILL.md .claude/skills/speckit-plan/SKILL.md > .specify/speckit-overlay.sha256 )
+new_repo layer-fresh
+write AGENTS.md $'# Mine\n'
+run3 --speckit --overlay over "$repo"
+check "layer: the run succeeds" $([ "$rc" -eq 0 ] && echo 0 || echo 1) "rc=$rc out=$out"
+check "layer: the layer's skills are there, for both integrations" $([ "$(cat "$repo/.claude/skills/speckit-plan/SKILL.md")" = 'plan skill with a layer' ] && [ "$(cat "$repo/.agents/skills/speckit-plan/SKILL.md")" = 'plan skill for codex with a layer' ] && echo 0 || echo 1) "out=$out"
+check "layer: the rest of the kit is the template's" $([ "$(cat "$repo/.specify/extensions.yml")" = 'hooks: {}' ] && echo 0 || echo 1) "out=$out"
+check "layer: the overlay manifest is there" $(cmp -s "$lay/.specify/speckit-overlay.sha256" "$repo/.specify/speckit-overlay.sha256" && echo 0 || echo 1) "out=$out"
+check "layer: a layer file is counted once, as added" $(grep -q '^kit: 11 added, 0 updated' <<<"$out" && echo 0 || echo 1) "out=$out"
+before=$(snapshot); run3 --speckit --overlay over "$repo"
+check "layer: a second run changes nothing" $([ "$(snapshot)" = "$before" ] && grep -q '0 added, 0 updated, 0 removed' <<<"$out" && echo 0 || echo 1) "out=$out"
+write .claude/skills/speckit-plan/SKILL.md $'edited here\n'
+run3 --speckit --overlay over "$repo"
+check "layer: an edited layer file is the layer's again" $([ "$(cat "$repo/.claude/skills/speckit-plan/SKILL.md")" = 'plan skill with a layer' ] && has 'updated: .claude/skills/speckit-plan/SKILL.md' && echo 0 || echo 1) "out=$out"
+run3 --speckit "$repo"
+check "layer: --speckit alone gives the kit back and removes the manifest" $([ "$(cat "$repo/.claude/skills/speckit-plan/SKILL.md")" = 'plan skill v2' ] && [ ! -e "$repo/.specify/speckit-overlay.sha256" ] && has 'removed: .specify/speckit-overlay.sha256' && echo 0 || echo 1) "out=$out"
+new_repo layer-dry
+write AGENTS.md $'# Mine\n'
+run3 --dry-run --speckit --overlay over "$repo"
+check "layer: --dry-run writes nothing" $([ ! -e "$repo/.specify" ] && [ ! -e "$repo/.claude" ] && echo 0 || echo 1) "out=$out"
+run3 --overlay over "$repo"
+check "layer: --overlay without --speckit is refused" $([ "$rc" -eq 2 ] && has 'goes with --speckit' && echo 0 || echo 1) "rc=$rc out=$out"
+run3 --speckit --overlay nosuch "$repo"
+check "layer: an unknown layer is refused" $([ "$rc" -eq 2 ] && has 'no layer' && echo 0 || echo 1) "rc=$rc out=$out"
+mkdir -p "$tmp/layers/stray/.specify"; printf '%s  %s\n' "$(printf x | shasum -a 256 | cut -d' ' -f1)" .claude/skills/speckit-new/SKILL.md > "$tmp/layers/stray/.specify/speckit-overlay.sha256"
+run3 --speckit --overlay stray "$repo"
+check "layer: a layer that replaces a file the kit lacks is refused" $([ "$rc" -eq 2 ] && has 'does not have' && echo 0 || echo 1) "rc=$rc out=$out"
+run3 --speckit --overlay '../x' "$repo"
+check "layer: a name that is a path is refused" $([ "$rc" -eq 2 ] && echo 0 || echo 1) "rc=$rc out=$out"
+
 printf '\n%d passed, %d failed\n' "$pass" "$fail"
 [ "$fail" -eq 0 ]
