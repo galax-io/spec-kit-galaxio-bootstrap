@@ -12,6 +12,14 @@
 scratchpad-*.sh
 scratchpad-*.log
 
+# Spec Kit CLI state: it differs on every machine, and the kit (scripts/check-speckit.sh) leaves it out
+.specify/extensions/.registry
+.specify/extensions/.cache/
+.specify/extensions/.backup/
+.specify/presets/.registry
+.specify/integrations/*.manifest.json
+.specify/workflows/workflow-registry.json
+
 # build output
 {% if stack == 'scala-sbt' -%}
 target/

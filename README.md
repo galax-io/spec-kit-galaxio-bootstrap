@@ -1,7 +1,7 @@
 # spec-kit-galaxio-bootstrap
 
 Galaxio's working scratch template for spinning up a new project with our
-**standard development process already wired in** — spec-kit (extensions + presets),
+**standard development process already wired in** — spec-kit (the same skills of Claude Code and Codex in every repository),
 the issue↔PR↔milestone linkage gate, and a stack-agnostic `AGENTS.md`/`CLAUDE.md`.
 
 The stack does not matter. The *process* is the same for every project, so this
@@ -21,8 +21,7 @@ Scaffold a new project:
 copier copy --trust gh:galax-io/spec-kit-galaxio-bootstrap ~/code/my-new-project
 ```
 
-- `--trust` is required because the template runs post-gen tasks (spec-kit install,
-  optional `git init`). Without it Copier refuses to run tasks.
+- `--trust` is required because the template runs post-gen tasks (optional `git init`). Without it Copier refuses to run tasks.
 - Answer the prompts (or pass `--defaults --data key=value …` for non-interactive).
 - Picking `stack` (scala-sbt / jvm-gradle / node / python / go / generic) pre-fills
   `build_test_cmd`, `dep_manifest`, `publish_mechanism`, the `.gitignore` build block,
@@ -43,14 +42,16 @@ filled-in `AGENTS.md` sections survive; new process rules land.
 
 - **`--trust` is mandatory** for this template (it has `_tasks`). Dry-run without
   side effects: add `--pretend`.
-- **Tasks are skippable** — `run_speckit` and `do_git` both default to `false`, so a
-  plain `copier copy` writes files only.
-- **Tasks re-run on `copier update`.** If you scaffolded with `do_git: true`, that
+- **The task is skippable** — `do_git` defaults to `false`, so a plain `copier copy`
+  writes files only.
+- **The task re-runs on `copier update`.** If you scaffolded with `do_git: true`, that
   choice is saved in `.copier-answers.yml` and the `git init && git add && commit`
-  task fires again on every update (an extra auto-commit). Re-running `run_speckit`
-  is harmless (additive install). Leave both `false` and run `setup-speckit.sh` /
+  task fires again on every update (an extra auto-commit). Leave it `false` and run
   `git init` yourself if you want full control. The `do_git` task also needs a
   configured git identity (`user.name` / `user.email`) or the commit step fails.
+- **No Spec Kit install runs in your project** (the `run_speckit` question is gone): the kit
+  is part of the template. The constitution is yours: copy and update never replace
+  `.specify/memory/constitution.md`.
 - **A global git `post-checkout` hook that exits non-zero breaks Copier**, because
   Copier clones the template and checks out a tag internally. If `copier copy gh:…`
   dies on `git checkout`, that's the cause — fix the hook or run with a clean
@@ -95,8 +96,13 @@ CLAUDE.md              # -> @AGENTS.md
   agents/trivial-worker.md   # claude-haiku-5-5 at medium, very simple [tier:trivial] work
 scripts/
   check-linkage.sh     # verifies issue <-> PR <-> milestone contract (gh + jq)
-setup-speckit.sh       # installs spec-kit extensions + presets
-specs/  .specify/      # spec-kit working dirs
+  check-speckit.sh     # fails when the Spec Kit kit differs from the template's
+.claude/skills/speckit-*    # the Spec Kit kit: skills of Claude Code ...
+.agents/skills/speckit-*    # ... and of Codex, 35 each, identical in every project
+.specify/              # the kit's scripts, templates, extensions, presets, hooks; speckit-kit.sha256 lists every file
+.specify/memory/       # the project's own constitution (starting point only; never replaced)
+.github/workflows/speckit.yml   # runs check-speckit.sh on every pull request
+specs/
 .gitignore
 ```
 
@@ -110,9 +116,10 @@ xhigh effort; light work (task generation, mechanical infra) on
 (simple edits, context, bookkeeping) on `claude-haiku-5-5` / Codex
 `gpt-6-luna` at medium effort. `.claude/settings.json` pins Claude Code's
 `opus` / `sonnet` / `haiku` aliases to those models, and each sub-agent in
-`.claude/agents/` carries its tier's model and effort. `setup-speckit.sh`
-writes the deep or light alias as a `model:` line into each installed
-spec-kit skill's frontmatter (the model only, not the effort):
+`.claude/agents/` carries its tier's model and effort. `scripts/build-speckit-kit.sh`
+(through `setup-speckit.sh`) writes the deep or light alias as a `model:` line into
+each Claude Code spec-kit skill's frontmatter (the model only, not the effort).
+Codex reads no `model:` line; its tier comes from how Codex is run:
 
 | tier | skills |
 |---|---|
@@ -120,8 +127,43 @@ spec-kit skill's frontmatter (the model only, not the effort):
 | light (`SPECKIT_LIGHT_MODEL`, default `sonnet`) | tasks, taskstoissues, agent-context-update, git-*, changelog-*, worktrees-*, harness-init/status/report, spectest-coverage |
 | unpinned (session model) | implement, bug-fix, bug-test, spectest-generate — they dispatch per-task sub-agents by `[tier:*]` |
 
-Re-running the script re-pins (idempotent), so an existing project picks the
-tiers up with `copier update --trust` followed by `bash setup-speckit.sh`.
+The pins are part of the generated kit, so a project picks tier changes up with
+`copier update --trust`.
+
+## The Spec Kit kit
+
+Every repository holds the same Spec Kit, byte for byte: the skills of Claude Code
+(`.claude/skills/speckit-*`) and Codex (`.agents/skills/speckit-*`), 35 each, and the files
+they run on under `.specify/`. It is **generated once, here**, by the pinned Spec Kit CLI
+(`KIT_VERSION` in `scripts/build-speckit-kit.sh`), committed to `template/`, and listed with
+its hashes in `.specify/speckit-kit.sha256`. Nothing runs `specify` in a project.
+
+```bash
+scripts/build-speckit-kit.sh           # regenerate template/ (needs `specify` at exactly KIT_VERSION, network, git)
+scripts/build-speckit-kit.sh --check   # fail when template/ is stale; CI runs this
+```
+
+Changing Spec Kit (a new version, an extension, a preset) is a pull request to this
+repository: bump `KIT_VERSION` or edit `setup-speckit.sh`, regenerate, tag, and the
+projects take it with `copier update --trust` (or `scripts/adopt.sh --speckit <dir>`
+for a repository not made from the template). In a project, `scripts/check-speckit.sh`
+and the `speckit` workflow fail on any difference (`MODIFIED`, `MISSING`, `EXTRA`).
+
+**First move of an existing repository onto the kit takes two steps**, because its
+`.specify/` and skills were written by some other Spec Kit version and `copier update` would
+meet 60-odd conflicts:
+
+```bash
+scripts/adopt.sh --speckit ~/code/repo     # the kit replaces what is there (--dry-run shows it); commit
+cd ~/code/repo && copier update --trust    # only the process files change now; setup-speckit.sh is deleted
+```
+
+(`adopt.sh --speckit` alone is enough for a repository without `.copier-answers.yml`.) Later
+releases need `copier update --trust` only.
+
+Left out of the kit, because they differ on every run or belong to one checkout: the CLI's
+registries and integration manifests, the extension cache and backups, `feature.json` — git
+ignores them in projects. `.specify/memory/` (the constitution) is the project's own.
 
 ## spec-kit components installed
 
@@ -157,5 +199,9 @@ template, not a temporary patch (pin each fork to a working tag, bump on re-tag)
   auto-answers `y`. Running an agent that does this may be blocked by a safety
   classifier when the external URL/repo originates from tool output rather than your
   own message — run the script yourself, or grant a Bash permission rule.
+- **Claude Code and Codex both get every skill.** Spec Kit writes extension and
+  preset skills into the default integration only, so `setup-speckit.sh` makes Codex the
+  default, then Claude Code, and pins the models last. It runs only inside
+  `scripts/build-speckit-kit.sh` (and the legacy `bootstrap.sh --speckit`).
 - **One failed install must not abort the rest** — the installer collects failures
   and reports them at the end (don't reintroduce `set -e` aborts in the install loop).

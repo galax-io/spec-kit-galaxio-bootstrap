@@ -379,5 +379,100 @@ write .github/workflows/linkage.yml $'name: linkage\n# mine\n'
 run "$repo"
 check "workflow: an existing linkage.yml is untouched" $([ "$(cat "$repo/.github/workflows/linkage.yml")" = $'name: linkage\n# mine' ] && has 'kept: .github/workflows/linkage.yml (differs from the template)' && echo 0 || echo 1) "out=$out"
 
+# ---- --speckit: the Spec Kit kit of the template, byte for byte --------------------------
+# A second fake template, with a kit: two skills, a script, the manifest, the constitution's
+# starting point and the three files that go with the kit.
+tplk="$tmp/template-kit"; rm -rf "$tplk"; cp -R "$tpl" "$tplk"
+mkkit() { # path, content — a file of the fake kit
+  mkdir -p "$(dirname "$tplk/$1")"; printf '%s' "$2" > "$tplk/$1"
+}
+mkkit .claude/skills/speckit-plan/SKILL.md $'plan skill v2\n'
+mkkit .agents/skills/speckit-plan/SKILL.md $'plan skill for codex v2\n'
+mkkit .specify/scripts/bash/common.sh $'#!/bin/sh\necho common\n'
+mkkit .specify/extensions.yml $'hooks: {}\n'
+mkkit .specify/memory/constitution.md $'# [PROJECT_NAME] Constitution\n'
+mkkit .specify/memory/.constitution-template.json $'{"source": "core"}\n'
+chmod +x "$tplk/.specify/scripts/bash/common.sh"
+( cd "$tplk" && shasum -a 256 .claude/skills/speckit-plan/SKILL.md .agents/skills/speckit-plan/SKILL.md \
+    .specify/scripts/bash/common.sh .specify/extensions.yml > .specify/speckit-kit.sha256 )
+mkkit scripts/check-speckit.sh $'#!/usr/bin/env bash\n# check-speckit\n'
+mkkit scripts/check-speckit_test.sh $'#!/usr/bin/env bash\n# check-speckit test\n'
+mkkit .github/workflows/speckit.yml $'name: speckit\n'
+run3() { # adopt.sh arguments against the template with a kit; sets $out and $rc
+  out="$(PATH="$bin:$PATH" TEMPLATE_DIR="$tplk" COPIER_LOG="$tmp/copier.log" bash "$script" "$@" 2>&1)"; rc=$?
+}
+kit_ok() { # the kit of $repo is the fake template's
+  ( cd "$repo" && shasum -a 256 -c .specify/speckit-kit.sha256 >/dev/null 2>&1 )
+}
+
+# K1. a repository without Spec Kit gets the kit, the manifest, the check and its workflow
+new_repo kit-fresh
+write AGENTS.md $'# Mine\n'
+run3 --speckit "$repo"
+check "kit-fresh: the run succeeds" $([ "$rc" -eq 0 ] && echo 0 || echo 1) "rc=$rc out=$out"
+check "kit-fresh: both skills are there" $([ -f "$repo/.claude/skills/speckit-plan/SKILL.md" ] && [ -f "$repo/.agents/skills/speckit-plan/SKILL.md" ] && echo 0 || echo 1) "out=$out"
+check "kit-fresh: every file of the manifest matches it" $(kit_ok && echo 0 || echo 1) "out=$out"
+check "kit-fresh: a script keeps its executable bit" $([ -x "$repo/.specify/scripts/bash/common.sh" ] && echo 0 || echo 1) "out=$out"
+check "kit-fresh: the check, its test and its workflow come with the kit" $([ -f "$repo/scripts/check-speckit.sh" ] && [ -f "$repo/scripts/check-speckit_test.sh" ] && [ -f "$repo/.github/workflows/speckit.yml" ] && echo 0 || echo 1) "out=$out"
+check "kit-fresh: the constitution starts from the template's" $(grep -qF 'Constitution' "$repo/.specify/memory/constitution.md" && [ -f "$repo/.specify/memory/.constitution-template.json" ] && echo 0 || echo 1) "out=$out"
+check "kit-fresh: nothing else of the usual run happens" $([ ! -e "$repo/CLAUDE.md" ] && [ ! -e "$repo/scripts/check-linkage.sh" ] && [ "$(cat "$repo/AGENTS.md")" = '# Mine' ] && echo 0 || echo 1) "out=$out"
+check "kit-fresh: it counts what it added" $(has 'kit: ' && has 'added' && echo 0 || echo 1) "out=$out"
+
+# K2. a repository with another Spec Kit's files: replaced, extras and CLI state removed, own things kept
+new_repo kit-old
+write AGENTS.md $'# Mine\n'
+write .claude/skills/speckit-plan/SKILL.md $'plan skill v1, edited here\n'
+write .claude/skills/speckit-old/SKILL.md $'a skill the template no longer has\n'
+write .claude/skills/galaxio-own/SKILL.md $'the repository own skill\n'
+write .specify/scripts/bash/mine.sh $'#!/bin/sh\n'
+write .specify/extensions/.registry $'{}\n'
+write .specify/extensions/.cache/catalog.json $'{}\n'
+write .specify/extensions/.backup/old.yml $'x\n'
+write .specify/presets/.registry $'{}\n'
+write .specify/integrations/claude.manifest.json $'{}\n'
+write .specify/workflows/workflow-registry.json $'{}\n'
+write .specify/feature.json $'{"feature_directory": "specs/001-x"}\n'
+write .specify/memory/constitution.md $'# Our own constitution\n\nWritten here.\n'
+write setup-speckit.sh $'#!/usr/bin/env bash\n'
+run3 --speckit "$repo"
+check "kit-old: the run succeeds" $([ "$rc" -eq 0 ] && echo 0 || echo 1) "rc=$rc out=$out"
+check "kit-old: the edited skill is the template's again" $([ "$(cat "$repo/.claude/skills/speckit-plan/SKILL.md")" = 'plan skill v2' ] && has 'updated: .claude/skills/speckit-plan/SKILL.md' && echo 0 || echo 1) "out=$out"
+check "kit-old: every file of the manifest matches it" $(kit_ok && echo 0 || echo 1) "out=$out"
+check "kit-old: a skill and a script the template does not have are removed" $([ ! -e "$repo/.claude/skills/speckit-old" ] && [ ! -e "$repo/.specify/scripts/bash/mine.sh" ] && has 'removed: .claude/skills/speckit-old/SKILL.md' && echo 0 || echo 1) "out=$out"
+check "kit-old: the CLI's state is removed" $([ ! -e "$repo/.specify/extensions/.registry" ] && [ ! -e "$repo/.specify/extensions/.cache" ] && [ ! -e "$repo/.specify/extensions/.backup" ] && [ ! -e "$repo/.specify/presets/.registry" ] && [ ! -e "$repo/.specify/integrations/claude.manifest.json" ] && [ ! -e "$repo/.specify/workflows/workflow-registry.json" ] && echo 0 || echo 1) "$(cd "$repo" && find .specify -type f | sort)"
+check "kit-old: a skill that is not a speckit-* one is kept" $([ -f "$repo/.claude/skills/galaxio-own/SKILL.md" ] && echo 0 || echo 1) "out=$out"
+check "kit-old: the constitution and feature.json are untouched" $([ "$(cat "$repo/.specify/memory/constitution.md")" = $'# Our own constitution\n\nWritten here.' ] && [ -f "$repo/.specify/feature.json" ] && echo 0 || echo 1) "out=$out"
+check "kit-old: the constitution's marker is added when missing" $([ -f "$repo/.specify/memory/.constitution-template.json" ] && echo 0 || echo 1) "out=$out"
+check "kit-old: setup-speckit.sh is reported as obsolete and left" $([ -f "$repo/setup-speckit.sh" ] && has 'setup-speckit.sh' && has 'obsolete' && echo 0 || echo 1) "out=$out"
+
+# K3. running it again changes nothing
+before=$(snapshot)
+run3 --speckit "$repo"
+check "kit-again: nothing changes" $([ "$(snapshot)" = "$before" ] && echo 0 || echo 1) "$(diff <(echo "$before") <(snapshot))"
+check "kit-again: it says so" $(has '0 added, 0 updated, 0 removed' && echo 0 || echo 1) "out=$out"
+
+# K4. --dry-run writes nothing but says what it would do
+new_repo kit-dry
+write AGENTS.md $'# Mine\n'
+write .claude/skills/speckit-plan/SKILL.md $'old\n'
+write .claude/skills/speckit-old/SKILL.md $'old\n'
+before=$(snapshot)
+run3 --dry-run --speckit "$repo"
+check "kit-dry: nothing is written" $([ "$(snapshot)" = "$before" ] && echo 0 || echo 1) "$(diff <(echo "$before") <(snapshot))"
+check "kit-dry: it reports the update and the removal" $(has 'updated: .claude/skills/speckit-plan/SKILL.md' && has 'removed: .claude/skills/speckit-old/SKILL.md' && echo 0 || echo 1) "out=$out"
+
+# K5. a template without a kit is refused
+new_repo kit-none
+write AGENTS.md $'# Mine\n'
+run --speckit "$repo"
+check "kit-none: a template without a manifest is refused" $([ "$rc" -eq 2 ] && has 'build-speckit-kit.sh' && echo 0 || echo 1) "rc=$rc out=$out"
+
+# K6. without --speckit the kit is not touched
+new_repo kit-off
+write AGENTS.md $'# Mine\n\n## Commits & PRs\n'
+write .claude/skills/speckit-plan/SKILL.md $'mine\n'
+run3 "$repo"
+check "kit-off: the usual run leaves the kit alone" $([ "$(cat "$repo/.claude/skills/speckit-plan/SKILL.md")" = 'mine' ] && [ ! -e "$repo/.specify/speckit-kit.sha256" ] && echo 0 || echo 1) "out=$out"
+
 printf '\n%d passed, %d failed\n' "$pass" "$fail"
 [ "$fail" -eq 0 ]
