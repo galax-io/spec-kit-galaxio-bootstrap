@@ -1,0 +1,24 @@
+schema_version: "1.0"
+
+preset:
+  id: "spec-across-repositories"
+  name: "Specification across repositories"
+  version: "0.1.0"
+  description: "Wraps specify so that one specification covers a feature that spans several repositories"
+  author: "galax-io"
+  license: "MIT"
+
+requires:
+  speckit_version: ">=1.2.2"
+
+provides:
+  templates:
+    - type: "command"
+      name: "speckit.specify"
+      file: "commands/speckit.specify.md"
+      description: "Decide the affected repositories first, then specify once for all of them"
+      strategy: "wrap"
+
+tags:
+  - "galaxio"
+  - "multi-repository"

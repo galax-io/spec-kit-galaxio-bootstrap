@@ -13,6 +13,13 @@
 #
 # Run from anywhere in the repository. It changes nothing.
 #
+# A repository may carry a layer on top of the kit (spec-kit-galaxio-bootstrap, layers/<name>/): a few
+# kit files replaced by ones the template's generator made, listed with their hashes in
+# .specify/speckit-overlay.sha256. A file listed there is compared with that hash instead of the kit's,
+# and nothing else changes:
+#
+#   OVERLAY   a path of the overlay manifest that the kit does not list
+#
 # Not checked, because they are the repository's own: .specify/memory/ (its constitution),
 # .specify/feature.json, and the state the Specify CLI keeps (.registry, .cache, .backup,
 # integration manifests), which the kit does not ship.
@@ -28,6 +35,7 @@ set -uo pipefail
 root="$(git rev-parse --show-toplevel 2>/dev/null || pwd)"
 cd "$root" || exit 2
 MANIFEST=".specify/speckit-kit.sha256"
+OVERLAY=".specify/speckit-overlay.sha256"
 
 [ -f "$MANIFEST" ] || { echo "check-speckit: $MANIFEST is missing; bring the kit in with scripts/adopt.sh --speckit from spec-kit-galaxio-bootstrap" >&2; exit 2; }
 if command -v sha256sum >/dev/null 2>&1; then sha256() { sha256sum "$1" | cut -d' ' -f1; }
@@ -38,15 +46,27 @@ problems=0
 report() { printf '%s %s\n' "$1" "$2"; problems=$((problems + 1)); }
 
 listed="$(mktemp)"; trap 'rm -f "$listed"' EXIT
+
+# The layer's hash for a path, if the repository has one; the kit's hash is then not the one to meet.
+over() { [ -f "$OVERLAY" ] && awk -v p="$1" '$2 == p {print $1; exit}' "$OVERLAY"; }
+if [ -f "$OVERLAY" ]; then
+  while read -r hash path; do
+    [ -n "$path" ] || continue
+    grep -qE "^[0-9a-f]+ +$(printf '%s' "$path" | sed 's/[.[\*^$/]/\\&/g')\$" "$MANIFEST" || report OVERLAY "$path"
+  done < "$OVERLAY"
+fi
+
 while read -r hash path; do
   [ -n "$path" ] || continue
   printf '%s\n' "$path" >> "$listed"
+  layered="$(over "$path")"; [ -z "$layered" ] || hash="$layered"
   if [ -L "$path" ] && [ ! -e "$path" ]; then report MISSING "$path"
   elif [ ! -f "$path" ]; then report MISSING "$path"
   elif [ "$(sha256 "$path")" != "$hash" ]; then report MODIFIED "$path"
   fi
 done < "$MANIFEST"
 printf '%s\n' "$MANIFEST" >> "$listed"
+[ -f "$OVERLAY" ] && printf '%s\n' "$OVERLAY" >> "$listed"
 sort -o "$listed" "$listed"
 
 # What the kit owns: its two skill directories and Spec Kit's own directories.
