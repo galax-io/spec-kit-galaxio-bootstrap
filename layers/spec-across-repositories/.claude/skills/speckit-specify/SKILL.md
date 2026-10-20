@@ -23,11 +23,11 @@ document for all of them. Do steps 1 to 3 first, in this session, with no other 
    you do not have it; never invent one. Use this directory as the feature directory in every step below
    (set `SPECIFY_FEATURE_DIRECTORY` to it) instead of numbering one yourself.
 2. **The candidates.**
-   - You are in an engine run when the task came with a run input (a `RunInput`), which the engine always
-     gives; without one you are working by hand. In an engine run, read `ecosystem` in that run input:
-     the repositories the catalog suggests, with the chain of relations to each, and the constitutions it
-     holds. These are hints, not verdicts. If the run input has no `ecosystem`, stop before writing
-     anything and say that it is missing.
+   - You are in an engine run when the file `.sdlc/run-input.json` exists in the working copy: it is the
+     run's input (`runInputVersion` 1), which the engine always writes. Read its `ecosystem` field: the
+     repositories the catalog suggests, with the chain of relations to each, and the constitutions it
+     holds. These are hints, not verdicts. With the file but no `ecosystem`, stop before writing anything
+     and say that it is missing. Without the file you are working by hand.
    - By hand, read `catalog-info.yaml` of the repositories the task names, of those that use them
      and of those they use, and their constitutions (`.specify/memory/constitution.md`).
 3. **A verdict for each.** Give every repository the task names, every candidate, and any other you find, a
