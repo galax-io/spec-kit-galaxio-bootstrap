@@ -474,5 +474,35 @@ write .claude/skills/speckit-plan/SKILL.md $'mine\n'
 run3 "$repo"
 check "kit-off: the usual run leaves the kit alone" $([ "$(cat "$repo/.claude/skills/speckit-plan/SKILL.md")" = 'mine' ] && [ ! -e "$repo/.specify/speckit-kit.sha256" ] && echo 0 || echo 1) "out=$out"
 
+# K7. skills that are dangling symlinks (an extension's dev directory) are replaced by the files
+new_repo kit-symlink
+write AGENTS.md $'# Mine\n'
+mkdir -p "$repo/.claude/skills/speckit-plan" "$repo/.claude/skills/speckit-link"
+ln -s ../../../.specify/extensions/gone/SKILL.md "$repo/.claude/skills/speckit-plan/SKILL.md"
+ln -s ../../../.specify/extensions/gone/SKILL.md "$repo/.claude/skills/speckit-link/SKILL.md"
+run3 --speckit "$repo"
+check "kit-symlink: the run succeeds" $([ "$rc" -eq 0 ] && echo 0 || echo 1) "rc=$rc out=$out"
+check "kit-symlink: a dangling link is replaced by the template's file" $([ ! -L "$repo/.claude/skills/speckit-plan/SKILL.md" ] && [ "$(cat "$repo/.claude/skills/speckit-plan/SKILL.md")" = 'plan skill v2' ] && echo 0 || echo 1) "out=$out"
+check "kit-symlink: a link the template does not have is removed" $([ ! -e "$repo/.claude/skills/speckit-link" ] && [ ! -L "$repo/.claude/skills/speckit-link/SKILL.md" ] && echo 0 || echo 1) "out=$out"
+check "kit-symlink: every file of the manifest matches it" $(kit_ok && echo 0 || echo 1) "out=$out"
+
+# K8. .gitignore: the lines the kit needs are added, once, and the rest of the file is kept
+new_repo kit-ignore
+write AGENTS.md $'# Mine\n'
+write .gitignore $'target/\n__pycache__/\n.idea/\n'
+run3 --speckit "$repo"
+check "kit-ignore: the CLI's state and __pycache__ are ignored" $(grep -qxF '.specify/extensions/.registry' "$repo/.gitignore" && grep -qxF '.specify/integrations/*.manifest.json' "$repo/.gitignore" && echo 0 || echo 1) "$(cat "$repo/.gitignore")"
+check "kit-ignore: a line that was there is not repeated and the others are kept" $([ "$(grep -cxF '__pycache__/' "$repo/.gitignore")" = 1 ] && grep -qxF 'target/' "$repo/.gitignore" && grep -qxF '.idea/' "$repo/.gitignore" && echo 0 || echo 1) "$(cat "$repo/.gitignore")"
+before=$(snapshot); run3 --speckit "$repo"
+check "kit-ignore: a second run adds nothing" $([ "$(snapshot)" = "$before" ] && echo 0 || echo 1) "$(cat "$repo/.gitignore")"
+new_repo kit-ignore-none
+write AGENTS.md $'# Mine\n'
+run3 --speckit "$repo"
+check "kit-ignore: a repository without .gitignore gets one" $(grep -qxF '.specify/presets/.registry' "$repo/.gitignore" && echo 0 || echo 1) "out=$out"
+new_repo kit-ignore-dry
+write AGENTS.md $'# Mine\n'
+run3 --dry-run --speckit "$repo"
+check "kit-ignore: --dry-run writes no .gitignore" $([ ! -e "$repo/.gitignore" ] && has '.gitignore' && echo 0 || echo 1) "out=$out"
+
 printf '\n%d passed, %d failed\n' "$pass" "$fail"
 [ "$fail" -eq 0 ]
