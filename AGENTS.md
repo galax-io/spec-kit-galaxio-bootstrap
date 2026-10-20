@@ -13,6 +13,8 @@ changes; keep generated output stable across every stack; never re-implement the
 linkage-gate scripts — they are copied verbatim — and never edit the Spec Kit kit in `template/` by hand:
 `scripts/build-speckit-kit.sh` generates it.
 
+**Constitution:** the principles of this repository are in `.specify/memory/constitution.md`; where they conflict with this file, the constitution wins.
+
 ## Stack
 
 Copier (Jinja2 templates) + bash. No compiled artifact — the deliverable is

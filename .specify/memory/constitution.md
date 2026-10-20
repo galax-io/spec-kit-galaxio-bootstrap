@@ -1,0 +1,147 @@
+<!--
+Sync Impact Report
+- Version change: (template) -> 1.0.0
+- Bump rationale: MAJOR — first ratified constitution of spec-kit-galaxio-bootstrap.
+- Principles added: I. The kit is generated, never hand-edited; II. One pinned Spec Kit for the organization;
+  III. The project's own files are never replaced; IV. `copier update` applies cleanly from the previous tag;
+  V. The gate scripts are copied verbatim; VI. adopt.sh adds, it does not replace; VII. Shipped workflows
+  pin actions by digest; VIII. Released tags are immutable semver.
+- Sections added: Precedence, The contract with stamped repositories, Development Workflow and Quality Gates, Governance.
+- Location: this file lives at the repository root (.specify/memory/). It is NOT part of the kit in template/,
+  which scripts/build-speckit-kit.sh generates and which projects receive.
+- Follow-up TODOs: template/.github/workflows/linkage.yml still uses `actions/checkout@v7` by tag and must be
+  pinned by digest to satisfy Principle VII. No automated check yet keeps hooks/ byte-identical to
+  .claude/hooks/ and .githooks/ (Principle V).
+-->
+
+# spec-kit-galaxio-bootstrap Constitution
+
+This repository is the Copier template that stamps Galaxio's process into every repository of galax-io and the
+single place where the shared Spec Kit kit is generated. A defect here reaches every repository on its next
+`copier update` or `scripts/adopt.sh` run, so its principles protect the repositories downstream first.
+
+## Precedence
+
+1. The maintainer's direct instruction.
+2. The ecosystem constitution (galax-io/galaxio-sdlc-backlog, `.specify/memory/constitution.md`).
+3. This constitution.
+4. This repository's `AGENTS.md`.
+
+This constitution MAY tighten the ecosystem principles and add its own; it MUST NOT contradict them.
+
+## Core Principles
+
+### I. The kit is generated, never hand-edited
+
+- The kit in `template/` (`template/.claude/skills`, `template/.agents/skills`, `template/.specify/` including
+  `template/.specify/speckit-kit.sha256`) MUST be produced only by `scripts/build-speckit-kit.sh`.
+- A change to the kit MUST NOT be made by editing those files; it is made by changing `KIT_VERSION` in
+  `scripts/build-speckit-kit.sh` or `setup-speckit.sh`, then regenerating, in the same pull request.
+- The CI job `kit` (`scripts/build-speckit-kit.sh --check`) MUST pass on every pull request.
+
+Rationale: every repository must hold the same skills byte for byte; only a reproducible generator that CI re-runs
+can prove that `template/` holds nothing nobody generated.
+
+### II. One pinned Spec Kit for the organization
+
+- `KIT_VERSION` in `scripts/build-speckit-kit.sh` MUST be the only place the Spec Kit version is chosen; the build
+  MUST refuse a `specify` CLI of any other version.
+- Nothing shipped to a project MAY run `specify` there: no template task, no shipped script. Projects receive the
+  kit only by `copier update` or `scripts/adopt.sh --speckit`.
+- Model pins written into the Claude Code skills MUST follow the tier table of `AGENTS.md`; a newer model of a class
+  moves `setup-speckit.sh` and the regenerated kit in the same change.
+
+Rationale: a CLI run inside a project produces a kit that differs from every other repository's; the pin keeps the
+organization on one reviewed version.
+
+### III. The project's own files are never replaced
+
+- `.specify/memory/` of a project (its constitution and `.constitution-template.json`) MUST stay in
+  `_skip_if_exists` of `copier.yml`, MUST NOT be listed in the manifest, and MUST NOT be replaced by
+  `scripts/adopt.sh`, including `--speckit`; its starting point is added only when missing.
+- `.specify/feature.json`, skills that are not `speckit-*`, and the Specify CLI state are outside the kit and MUST NOT
+  be counted as the kit by `template/scripts/check-speckit.sh`.
+
+Rationale: the constitution is each repository's own law; a template that overwrote it would erase the very
+principles specs are checked against.
+
+### IV. `copier update` applies cleanly from the previous tag
+
+- A template change MUST be applicable by `copier update --trust` to a repository generated at the previous released
+  tag without destroying the repository's filled-in `AGENTS.md` sections or other local edits.
+- A change that cannot be applied that way (as with the first move onto the kit in v0.8.0) MUST ship a documented
+  path, today `scripts/adopt.sh --speckit` first and `copier update --trust` second, and the release notes MUST say so.
+- Every rendered template MUST render on every `stack` choice in `copier.yml` with no stray `{{ }}`.
+
+Rationale: `copier update` is how process changes reach ~24 repositories; an update that conflicts or clobbers
+edits stops the rollout or silently loses a project's own text.
+
+### V. The gate scripts are copied verbatim
+
+- `scripts/check-linkage.sh` and its test, `.claude/hooks/linkage-guard.sh` and its test, and `.githooks/pre-push`
+  and its test MUST be byte-identical to their copies under `template/` and, for the hooks, under `hooks/`.
+- A shipped gate script MUST NOT be re-implemented or forked in templates; it changes here, with its suite, and is
+  copied.
+
+Rationale: the linkage gate is the mechanical enforcement of the ecosystem's backlog rule; two versions of it would
+enforce two different rules.
+
+### VI. adopt.sh adds, it does not replace
+
+- Without `--speckit`, `scripts/adopt.sh` MUST NOT replace or remove a file the target repository has: sections are
+  inserted, missing files are added, an existing gate file is kept and reported as same or different.
+- `--refresh` MAY replace a file or section only when it equals the template of some released tag; a local variant
+  MUST be kept.
+- `--speckit` MAY replace only the kit (the `speckit-*` skills and `.specify/` outside `.specify/memory/` and
+  `feature.json`) and the files that come with it.
+- `scripts/adopt.sh` MUST NOT create `.copier-answers.yml` or edit `.claude/settings.json`, and a second run MUST
+  change nothing. Each of these is asserted by `scripts/adopt_test.sh`.
+
+Rationale: most repositories of the organization were not made from the template; adoption must be safe to run
+on them unattended and leave every difference reviewable.
+
+### VII. Shipped workflows pin actions by digest
+
+- Every third-party action used in `template/.github/workflows/` and `.github/workflows/` MUST be referenced by
+  full commit SHA with a version comment (`@<sha> # vX.Y.Z`), never by a moving tag.
+- Every workflow there MUST declare an explicit `permissions:` block, read-only unless a job needs more.
+
+Rationale: these workflows run in every repository; v0.8.2 was cut because a repository's pin check refused an
+unpinned `@v7`.
+
+### VIII. Released tags are immutable semver
+
+- Releases MUST be `vX.Y.Z` tags following semantic versioning; a pushed tag MUST NOT be moved, deleted or reused.
+- A fix to a release is a new patch tag; a change that needs a migration step (Principle IV) is at least a minor.
+- Each release MUST have a GitHub Release whose notes state what changed and any upgrade step.
+
+Rationale: `.copier-answers.yml` of every project records the tag it was built from, and `adopt.sh --refresh`
+recognises earlier output by released tags; moving a tag breaks both.
+
+## The contract with stamped repositories
+
+What a repository receives from here is a public, serialized interface: the `copier.yml` question names and
+answers file, the paths of shipped files, the manifest format of `.specify/speckit-kit.sha256`, the
+`MODIFIED`/`MISSING`/`EXTRA` output of `check-speckit.sh`, and the command-line of `check-linkage.sh` and
+`adopt.sh`. Renaming or removing any of them is a compatibility change and MUST be approved by the maintainer
+before it is planned, and MUST come with the migration path required by Principle IV.
+
+## Development Workflow and Quality Gates
+
+- Test-first: a script's rule is what its hermetic suite asserts (`scripts/*_test.sh`, `.claude/hooks/*_test.sh`,
+  `.githooks/*_test.sh`, `template/scripts/check-speckit_test.sh`); a behaviour change MUST come with a case that
+  failed before it.
+- The CI job `scripts` (lint with `bash -n` and every suite) and the job `kit` MUST be green before merge.
+- A template change SHOULD be smoke-rendered with `copier copy --trust --pretend --defaults` before review.
+- Every PR carries a milestone of this repository and `Part of galax-io/galaxio-sdlc-backlog#N`; merging is the
+  maintainer's decision.
+
+## Governance
+
+This constitution supersedes `AGENTS.md` where they conflict and yields to the ecosystem constitution and the
+maintainer. Amendments are pull requests to this file, reviewed at the deep tier by the other vendor, and update
+the Sync Impact Report: MAJOR for removing or redefining a principle, MINOR for adding one or materially widening
+it, PATCH for wording. Specs and plans that touch this repository MUST state which principles they affect, and a
+reviewer MUST be able to answer each affected principle with yes or no.
+
+**Version**: 1.0.0 | **Ratified**: 2026-10-20 | **Last Amended**: 2026-10-20
