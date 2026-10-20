@@ -116,7 +116,11 @@ if [ "$SPECKIT" = 1 ]; then
   kit_put() { # path — make $TARGET/path the template's file
     local path="$1" src="$TEMPLATE_DIR/$1"
     [ -f "$src" ] || { echo "error: $path is in the kit but not in the template" >&2; exit 2; }
-    if [ ! -e "$TARGET/$path" ]; then
+    if [ -L "$TARGET/$path" ]; then
+      # An extension's dev directory linked instead of copied; a dangling link cannot be written through.
+      updated=$((updated + 1)); echo "updated: $path (was a symlink)"
+      [ "$DRY" = 1 ] || rm -f "$TARGET/$path"
+    elif [ ! -e "$TARGET/$path" ]; then
       added=$((added + 1))
     elif cmp -s "$src" "$TARGET/$path"; then
       same=$((same + 1)); return 0
@@ -168,7 +172,7 @@ if [ "$SPECKIT" = 1 ]; then
   ( cd "$TARGET" && for d in .claude/skills/speckit-* .agents/skills/speckit-* .specify/scripts .specify/templates \
         .specify/extensions .specify/presets .specify/workflows .specify/integrations; do
       [ -e "$d" ] || continue
-      find "$d" -type f \
+      find "$d" \( -type f -o -type l \) \
         ! -path '*/__pycache__/*' ! -name '*.pyc' ! -path '.specify/extensions/.registry' ! -path '.specify/extensions/.cache/*' ! -path '.specify/extensions/.backup/*' \
         ! -path '.specify/extensions/*/local-config.yml' ! -path '.specify/presets/.registry' \
         ! -path '.specify/integrations/*.manifest.json' ! -path '.specify/integrations/packages/*' \
@@ -180,6 +184,21 @@ if [ "$SPECKIT" = 1 ]; then
   if [ "$DRY" = 0 ]; then
     ( cd "$TARGET" && for d in .claude/skills .agents/skills .specify; do [ -d "$d" ] && find "$d" -type d -empty -delete; done ) || true
   fi
+
+  # The lines the kit needs in .gitignore: what the Specify CLI writes is not part of the kit.
+  ignore_added=0
+  for line in '__pycache__/' '.specify/extensions/.registry' '.specify/extensions/.cache/' '.specify/extensions/.backup/' \
+              '.specify/presets/.registry' '.specify/integrations/*.manifest.json' '.specify/workflows/workflow-registry.json'; do
+    if [ -f "$TARGET/.gitignore" ] && grep -qxF -- "$line" "$TARGET/.gitignore"; then continue; fi
+    if [ "$DRY" = 0 ]; then
+      if [ -s "$TARGET/.gitignore" ] && [ -n "$(tail -c1 "$TARGET/.gitignore")" ]; then echo >> "$TARGET/.gitignore"; fi
+      [ "$ignore_added" -gt 0 ] || [ ! -s "$TARGET/.gitignore" ] || echo >> "$TARGET/.gitignore"
+      [ "$ignore_added" -gt 0 ] || echo '# Spec Kit: Python caches and the CLI state, which the kit does not ship (scripts/check-speckit.sh)' >> "$TARGET/.gitignore"
+      echo "$line" >> "$TARGET/.gitignore"
+    fi
+    ignore_added=$((ignore_added + 1))
+  done
+  [ "$ignore_added" = 0 ] || echo "gitignore: $ignore_added line(s) added to .gitignore"
 
   echo "kit: $added added, $updated updated, $removed removed, $same unchanged"
   [ ! -e "$TARGET/setup-speckit.sh" ] || echo "note: setup-speckit.sh is obsolete (the kit is generated in spec-kit-galaxio-bootstrap, nothing installs Spec Kit here); delete it"

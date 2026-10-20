@@ -81,6 +81,16 @@ mkdir -p "$d/.specify/extensions/git/scripts/python/__pycache__"; printf 'x\n' >
 out="$(run "$d")"; rc=$?
 check "Python's __pycache__ under the kit is not an extra file" "$rc" "rc=$rc: $out"
 
+d="$(new_repo extra-link)"
+mkdir -p "$d/.claude/skills/speckit-old"; ln -s ../../../.specify/gone "$d/.claude/skills/speckit-old/SKILL.md"
+out="$(run "$d")"; rc=$?
+check "a symlink in a directory the kit owns is an extra file" "$([ "$rc" = 1 ] && echo 0 || echo 1)" "rc=$rc: $out"
+
+d="$(new_repo link-in-kit)"
+rm "$d/.agents/skills/speckit-plan/SKILL.md"; ln -s ../../../x "$d/.agents/skills/speckit-plan/SKILL.md"
+out="$(run "$d")"; rc=$?
+check "a listed file that is a dangling link is missing" "$([ "$rc" = 1 ] && echo 0 || echo 1)" "rc=$rc: $out"
+
 d="$(new_repo other-skill)"
 mkdir -p "$d/.claude/skills/galaxio-own"; printf 'the repository own skill\n' > "$d/.claude/skills/galaxio-own/SKILL.md"
 out="$(run "$d")"; rc=$?

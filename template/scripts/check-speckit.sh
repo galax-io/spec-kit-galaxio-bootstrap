@@ -41,7 +41,8 @@ listed="$(mktemp)"; trap 'rm -f "$listed"' EXIT
 while read -r hash path; do
   [ -n "$path" ] || continue
   printf '%s\n' "$path" >> "$listed"
-  if [ ! -f "$path" ]; then report MISSING "$path"
+  if [ -L "$path" ] && [ ! -e "$path" ]; then report MISSING "$path"
+  elif [ ! -f "$path" ]; then report MISSING "$path"
   elif [ "$(sha256 "$path")" != "$hash" ]; then report MODIFIED "$path"
   fi
 done < "$MANIFEST"
@@ -53,7 +54,7 @@ owned=(.claude/skills/speckit-* .agents/skills/speckit-* .specify/scripts .speci
        .specify/extensions .specify/presets .specify/workflows .specify/integrations)
 for d in "${owned[@]}"; do
   [ -e "$d" ] || continue
-  find "$d" -type f \
+  find "$d" \( -type f -o -type l \) \
     ! -path '*/__pycache__/*' ! -name '*.pyc' ! -path '.specify/extensions/.registry' ! -path '.specify/extensions/.cache/*' ! -path '.specify/extensions/.backup/*' \
     ! -path '.specify/extensions/*/local-config.yml' ! -path '.specify/presets/.registry' \
     ! -path '.specify/integrations/*.manifest.json' ! -path '.specify/integrations/packages/*' \
