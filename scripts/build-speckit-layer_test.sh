@@ -59,7 +59,14 @@ has "the part after is marked" '## After you specify'
 has "FR-002 the directory by the issue number" 'specs/<number of the feature'"'"'s issue>-<short name>'
 has "FR-002 SPECIFY_FEATURE_DIRECTORY is set" 'SPECIFY_FEATURE_DIRECTORY'
 has "FR-003 the engine's information" '`ecosystem`'
-has "FR-003 an engine run is told by its run input" 'task came with a run input'
+has "FR-003 an engine run is told by the file" '`.sdlc/run-input.json`'
+has "FR-003 the file is the run's input, version 1" '`runInputVersion` 1'
+has "FR-003 the record is the file's field" 'its `ecosystem` field'
+has "FR-003 without the file it is by hand" 'Without the file you are working by hand'
+has "FR-003 the file without the record stops" 'the file but no `ecosystem`, stop before writing anything'
+grep -qF '`.sdlc/run-input.json`' "$root/presets/spec-across-repositories/README.md"; check "FR-003 the README names the file" $? ""
+grep -qF 'galaxio.io/uses.galaxio-sdlc-orchestrator' "$root/catalog-info.yaml"; check "FR-003 the catalog declares the contract with the engine" $? ""
+grep -q 'version: "0.2.0"' "$root/presets/spec-across-repositories/preset.yml"; check "the preset is 0.2.0" $? ""
 has "FR-003 it stops when the information is missing" 'stop before writing'
 has "FR-003 by hand it reads the catalog" 'catalog-info.yaml'
 has "FR-004 the three verdicts" '`затронут`'
