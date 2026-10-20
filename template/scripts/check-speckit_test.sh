@@ -76,6 +76,11 @@ printf '#!/bin/sh\n' > "$d/.specify/scripts/bash/mine.sh"
 out="$(run "$d")"; rc=$?
 check "a script added to .specify/scripts fails" "$([ "$rc" = 1 ] && echo 0 || echo 1)" "rc=$rc: $out"
 
+d="$(new_repo pycache)"
+mkdir -p "$d/.specify/extensions/git/scripts/python/__pycache__"; printf 'x\n' > "$d/.specify/extensions/git/scripts/python/__pycache__/a.cpython-312.pyc"
+out="$(run "$d")"; rc=$?
+check "Python's __pycache__ under the kit is not an extra file" "$rc" "rc=$rc: $out"
+
 d="$(new_repo other-skill)"
 mkdir -p "$d/.claude/skills/galaxio-own"; printf 'the repository own skill\n' > "$d/.claude/skills/galaxio-own/SKILL.md"
 out="$(run "$d")"; rc=$?
