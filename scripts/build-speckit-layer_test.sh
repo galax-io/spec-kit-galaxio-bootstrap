@@ -66,7 +66,7 @@ has "FR-003 without the file it is by hand" 'Without the file you are working by
 has "FR-003 the file without the record stops" 'the file but no `ecosystem`, stop before writing anything'
 grep -qF '`.sdlc/run-input.json`' "$root/presets/spec-across-repositories/README.md"; check "FR-003 the README names the file" $? ""
 grep -qF 'galaxio.io/uses.galaxio-sdlc-orchestrator' "$root/catalog-info.yaml"; check "FR-003 the catalog declares the contract with the engine" $? ""
-grep -q 'version: "0.2.0"' "$root/presets/spec-across-repositories/preset.yml"; check "the preset is 0.2.0" $? ""
+grep -q 'version: "0.3.0"' "$root/presets/spec-across-repositories/preset.yml"; check "the preset is 0.3.0" $? ""
 has "FR-003 it stops when the information is missing" 'stop before writing'
 has "FR-003 by hand it reads the catalog" 'catalog-info.yaml'
 has "FR-004 the three verdicts" '`затронут`'
@@ -80,6 +80,9 @@ has "FR-006 the table's columns" '`Репозиторий`, `Вердикт`, `�
 has "FR-007 requirements are marked" '`[все]`'
 has "FR-008 the release order section" '## Порядок выпуска и контракты'
 has "FR-009 the summary" '## Что специфицируется и как это будет работать'
+has "readable: the statement is three to five short bullets" 'three to five short bullet lines'
+has "readable: a not-affected row stays one short line" 'one short line'
+has "readable: no reason is repeated" 'and say a reason shared by'
 has "FR-010 the neighbours are checked" 'neighbours in'
 has "FR-010 a conflict is critical" 'critical finding'
 has "FR-011 one repository has one row" 'one row'
