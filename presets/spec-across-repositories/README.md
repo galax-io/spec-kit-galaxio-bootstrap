@@ -9,9 +9,25 @@ before writing; without the file it works by hand.
 
 **Before** the base command: the feature directory `specs/<issue number>-<name>`, the candidate
 repositories (from the engine's `ecosystem`, or read by hand from the catalog), a verdict with evidence
-for each. **After** it: the `Репозитории` table, requirements marked by repository, the release order and
-contracts, a short summary, and a check against the constitutions of the affected repositories and their
-neighbours.
+for each.
+
+**After** it, in steps 4 and 5 of `commands/speckit.specify.md`, the preset adds to the specification:
+
+- The `## Репозитории` table, with the columns `Репозиторий`, `Вердикт`, `Что меняется`, `Основание`, has
+  one row per repository, with the verdict `затронут`, `не затронут` or `неясно` and the kind of evidence
+  said in `Основание`.
+- Each functional requirement is marked with the repository it is for, as `[<repository>]` with the
+  repository's name for `<repository>`, or `[все]` when it is for all of them.
+- The `## Порядок выпуска и контракты` section gives the numbered order in which the repositories are
+  released and, for each dependency between them, what one gives the other, or only the words
+  «Нет: затронут один репозиторий» when one repository is affected.
+- The `## Что специфицируется и как это будет работать` section, at the top of the specification, says in
+  three to five short bullet lines what is specified and how it will work, for a reader who will read
+  nothing else.
+- The specification is checked against the constitutions of the repository it is written in, of every
+  repository with the verdict `затронут` or `неясно` and of their neighbours in the catalog, with the
+  findings in `checklists/requirements.md`, not in the specification: a conflict is a critical finding and
+  a constitution that is missing is listed as not checked.
 
 The preset is not installed by `specify preset add` in a repository. `scripts/build-speckit-layer.sh`
 installs it in a scratch project and keeps the two resulting skill files under
