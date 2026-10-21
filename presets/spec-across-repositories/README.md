@@ -9,9 +9,24 @@ before writing; without the file it works by hand.
 
 **Before** the base command: the feature directory `specs/<issue number>-<name>`, the candidate
 repositories (from the engine's `ecosystem`, or read by hand from the catalog), a verdict with evidence
-for each. **After** it: the `Репозитории` table, requirements marked by repository, the release order and
-contracts, a short summary, and a check against the constitutions of the affected repositories and their
-neighbours.
+for each.
+
+**After** it, the command adds these to the spec, in its language (`commands/speckit.specify.md` is the full
+text and wins where they differ):
+
+- `## Репозитории`: a table with exactly the columns `Репозиторий`, `Вердикт`, `Что меняется`, `Основание`,
+  one row per repository with its verdict and the kind of its evidence, so one row for a feature of one
+  repository.
+- Requirement marks: each functional requirement names the repository it is for as `[<repository>]`, or
+  `[все]` when it is for all of them.
+- `## Порядок выпуска и контракты`: a numbered order in which the repositories are released and, for each
+  dependency between them, what one repository gives the other, or only the words
+  «Нет: затронут один репозиторий» when one is affected.
+- `## Что специфицируется и как это будет работать`: at the top of the spec, three to five short bullet
+  lines of one sentence each, saying what is specified and how it will work across the repositories.
+
+Then it checks the spec against the constitutions of the affected repositories and their neighbours and
+writes its findings in `checklists/requirements.md`, not in the spec.
 
 The preset is not installed by `specify preset add` in a repository. `scripts/build-speckit-layer.sh`
 installs it in a scratch project and keeps the two resulting skill files under
