@@ -382,14 +382,16 @@ Add these to the specification you wrote, in its language, keeping the sections 
 4. **Sections.**
    - `## Репозитории`: a table with exactly the columns `Репозиторий`, `Вердикт`, `Что меняется`,
      `Основание`, one row per repository of step 3, the kind of evidence said in `Основание`. A feature of
-     one repository has one row.
+     one repository has one row. Keep a `не затронут` row to one short line, and say a reason shared by
+     several rows once, in the row `остальные репозитории организации`, instead of repeating it in each.
    - Each functional requirement names the repository it is for in brackets, as `[<repository>]`, or
      `[все]` when it is for all of them.
    - `## Порядок выпуска и контракты`: a numbered order in which the repositories are released and, for
      each dependency between them, what one repository gives the other. Leave it empty, with the words
      «Нет: затронут один репозиторий», when only one is affected.
-   - A short paragraph at the top, `## Что специфицируется и как это будет работать`: what is specified,
-     and how it will work across the repositories, for a reader who will read nothing else.
+   - At the top, `## Что специфицируется и как это будет работать`: three to five short bullet lines (one
+     sentence each, a line break after each, no wall of text) saying what is specified and how it will work
+     across the repositories, for a reader who will read nothing else.
 5. **The rules of the repositories.** Check the specification against the constitution of this repository and
    the constitution of every repository whose verdict is `затронут` or `неясно` and of their neighbours in
    the catalog graph (those in `ecosystem` when you have it, otherwise those you read in step 2). A conflict
