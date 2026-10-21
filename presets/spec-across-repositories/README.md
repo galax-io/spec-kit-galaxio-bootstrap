@@ -9,9 +9,16 @@ before writing; without the file it works by hand.
 
 **Before** the base command: the feature directory `specs/<issue number>-<name>`, the candidate
 repositories (from the engine's `ecosystem`, or read by hand from the catalog), a verdict with evidence
-for each. **After** it: the `Репозитории` table, requirements marked by repository, the release order and
-contracts, a short summary, and a check against the constitutions of the affected repositories and their
-neighbours.
+for each. **After** it, the preset adds to the specification:
+
+- `## Репозитории`: a table row per repository, with `Репозиторий`, `Вердикт` (`затронут`, `не затронут` or `неясно`), `Что меняется` and `Основание`, which names its kind of evidence.
+- `[<repository>]` on each functional requirement: the repository it is for, or `[все]` when it is for all of them.
+- `## Порядок выпуска и контракты`: a numbered release order and what one repository gives another, or «Нет: затронут один репозиторий».
+- `## Что специфицируется и как это будет работать`: at the top, three to five short lines of one sentence each.
+- A check against the constitutions of this repository, the affected ones and their catalog neighbours: a conflict is a critical finding in `checklists/requirements.md`.
+
+The list is a summary. The full rule is the text of `commands/speckit.specify.md`; where the two differ, the
+text of the command is right.
 
 The preset is not installed by `specify preset add` in a repository. `scripts/build-speckit-layer.sh`
 installs it in a scratch project and keeps the two resulting skill files under
