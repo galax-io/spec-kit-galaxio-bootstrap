@@ -519,11 +519,14 @@ pr_files 3 added specs/BCKLG-30-health/spec.md added specs/BCKLG-30-health/plan.
 at headsha specs/BCKLG-30-health/spec.md $'# Health\n\n**Задачи**: BCKLG-7, BCKLG-30\n'
 at headsha specs/BCKLG-30-health/plan.md $'# Plan\n\n**Задачи**: BCKLG-7\n'
 at headsha specs/BCKLG-30-health/tasks.md $'# Tasks\n'
+pr_files 3 added specs/BCKLG-30-health/spec.md added specs/BCKLG-30-health/plan.md added specs/BCKLG-30-health/tasks.md added specs/BCKLG-30-health/checklists/requirements.md removed specs/BCKLG-30-health/old.md added specs/BCKLG-31-english/spec.md
+at headsha specs/BCKLG-31-english/spec.md $'# English\n\n**Tasks**: BCKLG-31\n'
 run --pr 3
 check "spec: a plan or tasks without the directory's task fails" $([ "$rc" -eq 1 ] && echo 0 || echo 1) "rc=$rc out=$out"
 check "spec: a line that names another task is said so" $(has '✗ specs/BCKLG-30-health/plan.md: its «Задачи» line names no BCKLG-30, the task of its directory' && echo 0 || echo 1) "out=$out"
-check "spec: a file without the line is said so" $(has '✗ specs/BCKLG-30-health/tasks.md has no line «**Задачи**: BCKLG-30» under its title' && echo 0 || echo 1) "out=$out"
+check "spec: a file without the line is said so" $(has '✗ specs/BCKLG-30-health/tasks.md has no line «**Задачи**: BCKLG-30» (in English «**Tasks**: BCKLG-30») under its title' && echo 0 || echo 1) "out=$out"
 check "spec: the spec that names it passes" $(! has 'spec.md' && echo 0 || echo 1) "out=$out"
+check "spec: the English spelling **Tasks**: names it too (backlog#403)" $(! has 'BCKLG-31-english' && echo 0 || echo 1) "out=$out"
 check "spec: the script made only the calls the stub knows" $(only_known_calls && echo 0 || echo 1) "$(cat "$fx/unexpected.log" 2>&1)"
 new_case spec-bot
 PR_AUTHOR='dependabot[bot]' PR_BOT=1 pr_json 3 OPEN "" "Bumps a library." v0.8.0
@@ -544,8 +547,11 @@ specs_of clean
 spec_file BCKLG-62-review-debate spec.md $'# Debate\n\n**Задачи**: BCKLG-62, BCKLG-335'
 spec_file BCKLG-62-review-debate plan.md $'# Plan\n\n**Задачи**: BCKLG-62, BCKLG-335'
 spec_file BCKLG-334-gate-review-cost spec.md $'# Cost\n\n**Задачи**: BCKLG-334'
+spec_file BCKLG-7-english spec.md $'# English\n\n**Tasks**: BCKLG-7'
+spec_file BCKLG-7-english tasks.md $'# Tasks\n\n**Tasks**: BCKLG-7, BCKLG-9'
 printf 'index\n' > "$root/README.md"
 run_specs
+check "specs: the English spelling **Tasks**: reads as the line (backlog#403)" $([ "$rc" -eq 0 ] && ! has 'BCKLG-7-english' && echo 0 || echo 1) "rc=$rc out=$out"
 check "specs: a tree named by task numbers passes" $([ "$rc" -eq 0 ] && has 'PASS' && echo 0 || echo 1) "rc=$rc out=$out"
 check "specs: it asks GitHub nothing" $([ ! -s "$fx/ghcalls.log" ] && echo 0 || echo 1) "$(cat "$fx/ghcalls.log" 2>&1)"
 new_case specs-broken
@@ -558,7 +564,7 @@ spec_file BCKLG-9-draft notes.md 'no spec yet'
 run_specs
 check "specs: a broken tree fails" $([ "$rc" -eq 1 ] && has 'FAIL' && echo 0 || echo 1) "rc=$rc out=$out"
 check "specs: a directory not named by its task" $(has '✗ specs/62-review-debate is not named BCKLG-<N>-<name>' && echo 0 || echo 1) "out=$out"
-check "specs: a file without the line" $(has '✗ specs/BCKLG-334-gate-review-cost/tasks.md has no line «**Задачи**: BCKLG-334» under its title' && echo 0 || echo 1) "out=$out"
+check "specs: a file without the line" $(has '✗ specs/BCKLG-334-gate-review-cost/tasks.md has no line «**Задачи**: BCKLG-334» (in English «**Tasks**: BCKLG-334») under its title' && echo 0 || echo 1) "out=$out"
 check "specs: a directory without spec.md" $(has '✗ specs/BCKLG-9-draft has no spec.md' && echo 0 || echo 1) "out=$out"
 check "specs: a task two specs carry" $(has '✗ BCKLG-62 is carried by 2 specs: specs/BCKLG-334-gate-review-cost specs/BCKLG-62-again — a task may have one' && echo 0 || echo 1) "out=$out"
 
