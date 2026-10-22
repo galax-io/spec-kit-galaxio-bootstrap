@@ -17,7 +17,8 @@ document for all of them. Do steps 0 to 3 first, in this session, with no other 
 0. **The task's spec, if there is one.** The task number is `BCKLG-<N>`, where `<N>` is the number of the
    feature's issue in `galax-io/galaxio-sdlc-backlog`: the one number of the task in the organization. Ask
    for the issue number if you do not have it; never invent one. A spec carries its tasks on the line
-   `**Задачи**: BCKLG-<N>[, BCKLG-<M>…]` under its title. Look for the spec.md under `specs/` whose line
+   `**Задачи**: BCKLG-<N>[, BCKLG-<M>…]` under its title, written `**Tasks**: …` in a repository whose files
+   are English only and read alike. Look for the spec.md under `specs/` whose line
    names `BCKLG-<N>`; a spec.md without the line counts as the spec of the task its directory is named by
    (`specs/<N>-…` or `specs/BCKLG-<N>-…`). Two such specs: stop and say which; the task may have one.
    One: do not write another. Check it against the task as its issue says now and against the form below;
@@ -26,7 +27,8 @@ document for all of them. Do steps 0 to 3 first, in this session, with no other 
 1. **The directory.** A new spec's directory is `specs/BCKLG-<N>-<short name>` in this repository, so that
    the spec is named by the task number and by nothing else. Use the directory as the feature directory in
    every step below (set `SPECIFY_FEATURE_DIRECTORY` to it) instead of numbering one yourself. Under the
-   spec's title write the line `**Задачи**: BCKLG-<N>`; a spec that carries several tasks names each,
+   spec's title write the line `**Задачи**: BCKLG-<N>` (`**Tasks**: BCKLG-<N>` where the files are English
+   only); a spec that carries several tasks names each,
    its own task first. `plan.md` and `tasks.md` of the spec carry the same line.
 2. **The candidates.**
    - You are in an engine run when the file `.sdlc/run-input.json` exists in the working copy: it is the

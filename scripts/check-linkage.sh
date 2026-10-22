@@ -24,7 +24,8 @@ What each entity owes (this script enforces it):
   Task       a PR of a feature names its task number, BCKLG-<N> for issue N of the backlog,
              in its body ("Refs: BCKLG-<N>"). A spec directory a PR adds is
              specs/BCKLG-<N>-<name>, and the spec.md, plan.md and tasks.md of one carry the
-             line "**Задачи**: BCKLG-<N>[, …]" with its number. Bots' PRs are exempt.
+             line "**Задачи**: BCKLG-<N>[, …]" with its number ("**Tasks**:" in a repository
+             whose files are English only). Bots' PRs are exempt.
   Milestone  one release (vX.Y.Z); tag only when every issue is closed, every PR that
              links one is merged, and no PR is still open.
   Feature    an issue in the backlog repository whose milestone says "Release: business"
@@ -56,11 +57,12 @@ EOF
 }
 
 # The task number (backlog#403): BCKLG-<N> for issue N of the backlog, the one number of a task in the
-# organization. A spec names the tasks it carries on its «Задачи» line, under its title.
+# organization. A spec names the tasks it carries on its «Задачи» line, under its title; a repository whose
+# files are English only writes it «**Tasks**:», read alike.
 TASK_RE='^BCKLG-([1-9][0-9]*)-[A-Za-z0-9]'
-tasks_of() { # text on stdin -> the numbers on its first «Задачи» line, one per line; fails without the line
+tasks_of() { # text on stdin -> the numbers on its first «Задачи» (or «Tasks») line, one per line; fails without the line
   local line
-  line=$(grep -m1 -E '^[[:space:]]*\*\*Задачи\*\*:') || return 1
+  line=$(grep -m1 -E '^[[:space:]]*\*\*(Задачи|Tasks)\*\*:') || return 1
   tr -c 'A-Za-z0-9_-' '\n' <<<"$line" | sed -n 's/^BCKLG-\([1-9][0-9]*\)$/\1/p'
 }
 names_task() { # text on stdin, number -> succeeds when the text names BCKLG-<number> as a whole word
@@ -68,7 +70,7 @@ names_task() { # text on stdin, number -> succeeds when the text names BCKLG-<nu
 }
 line_problem() { # file path, number, its text on stdin -> what is wrong with its «Задачи» line; nothing when it names the number
   local nums
-  if ! nums=$(tasks_of); then printf '%s has no line «**Задачи**: BCKLG-%s» under its title' "$1" "$2"
+  if ! nums=$(tasks_of); then printf '%s has no line «**Задачи**: BCKLG-%s» (in English «**Tasks**: BCKLG-%s») under its title' "$1" "$2" "$2"
   elif ! grep -qx "$2" <<<"$nums"; then printf '%s: its «Задачи» line names no BCKLG-%s, the task of its directory' "$1" "$2"; fi
 }
 
