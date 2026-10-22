@@ -7,9 +7,10 @@ An engine run is told by the file `.sdlc/run-input.json` in the working copy (th
 its `ecosystem` field is the engine's record of the ecosystem. With the file but no `ecosystem` the command stops
 before writing; without the file it works by hand.
 
-**Before** the base command: the feature directory `specs/<issue number>-<name>`, the candidate
-repositories (from the engine's `ecosystem`, or read by hand from the catalog), a verdict with evidence
-for each.
+**Before** the base command: the task's spec, when `specs/` has one, found by the line
+`**Задачи**: BCKLG-<N>` under its title and checked against the task instead of writing another; else the
+feature directory `specs/BCKLG-<N>-<name>` with that line (backlog#403); the candidate repositories (from the
+engine's `ecosystem`, or read by hand from the catalog), a verdict with evidence for each.
 
 **After** it, the command adds these to the spec, in its language (`commands/speckit.specify.md` is the full
 text and wins where they differ):

@@ -16,12 +16,22 @@ model: opus
 ## Before you specify: which repositories does the feature affect?
 
 A feature of this organization usually touches several repositories, and this specification is the one
-document for all of them. Do steps 1 to 3 first, in this session, with no other agent for any repository.
+document for all of them. Do steps 0 to 3 first, in this session, with no other agent for any repository.
 
-1. **The directory.** The feature's directory is `specs/<number of the feature's issue>-<short name>` in
-   this repository, so that no number is taken twice in the organization. Ask for the issue number if
-   you do not have it; never invent one. Use this directory as the feature directory in every step below
-   (set `SPECIFY_FEATURE_DIRECTORY` to it) instead of numbering one yourself.
+0. **The task's spec, if there is one.** The task number is `BCKLG-<N>`, where `<N>` is the number of the
+   feature's issue in `galax-io/galaxio-sdlc-backlog`: the one number of the task in the organization. Ask
+   for the issue number if you do not have it; never invent one. A spec carries its tasks on the line
+   `**Задачи**: BCKLG-<N>[, BCKLG-<M>…]` under its title. Look for the spec.md under `specs/` whose line
+   names `BCKLG-<N>`; a spec.md without the line counts as the spec of the task its directory is named by
+   (`specs/<N>-…` or `specs/BCKLG-<N>-…`). Two such specs: stop and say which; the task may have one.
+   One: do not write another. Check it against the task as its issue says now and against the form below;
+   if it covers the task and its form holds, change nothing and say why it matches; if not, update it in
+   its directory, keep what it says for its other tasks, and use that directory in every step below.
+1. **The directory.** A new spec's directory is `specs/BCKLG-<N>-<short name>` in this repository, so that
+   the spec is named by the task number and by nothing else. Use the directory as the feature directory in
+   every step below (set `SPECIFY_FEATURE_DIRECTORY` to it) instead of numbering one yourself. Under the
+   spec's title write the line `**Задачи**: BCKLG-<N>`; a spec that carries several tasks names each,
+   its own task first. `plan.md` and `tasks.md` of the spec carry the same line.
 2. **The candidates.**
    - You are in an engine run when the file `.sdlc/run-input.json` exists in the working copy: it is the
      run's input (`runInputVersion` 1), which the engine always writes. Read its `ecosystem` field: the
