@@ -3,7 +3,7 @@ schema_version: "1.0"
 preset:
   id: "spec-across-repositories"
   name: "Specification across repositories"
-  version: "0.3.0"
+  version: "0.4.0"
   description: "Wraps specify so that one specification covers a feature that spans several repositories"
   author: "galax-io"
   license: "MIT"
