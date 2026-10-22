@@ -58,6 +58,7 @@ has "the part before is marked" '## Before you specify'
 has "the part after is marked" '## After you specify'
 has "FR-002 the directory by the task number (backlog#403)" 'specs/BCKLG-<N>-<short name>'
 has "backlog#403 the «Задачи» line under the title" '**Задачи**: BCKLG-<N>'
+has "backlog#403 its English spelling" '**Tasks**: BCKLG-<N>'
 has "backlog#403 the task's spec is looked for and re-checked first" 'Look for the spec.md under `specs/` whose line'
 has "FR-002 SPECIFY_FEATURE_DIRECTORY is set" 'SPECIFY_FEATURE_DIRECTORY'
 has "FR-003 the engine's information" '`ecosystem`'
@@ -68,7 +69,7 @@ has "FR-003 without the file it is by hand" 'Without the file you are working by
 has "FR-003 the file without the record stops" 'the file but no `ecosystem`, stop before writing anything'
 grep -qF '`.sdlc/run-input.json`' "$root/presets/spec-across-repositories/README.md"; check "FR-003 the README names the file" $? ""
 grep -qF 'galaxio.io/uses.galaxio-sdlc-orchestrator' "$root/catalog-info.yaml"; check "FR-003 the catalog declares the contract with the engine" $? ""
-grep -q 'version: "0.4.0"' "$root/presets/spec-across-repositories/preset.yml"; check "the preset is 0.4.0" $? ""
+grep -q 'version: "0.4.1"' "$root/presets/spec-across-repositories/preset.yml"; check "the preset is 0.4.1" $? ""
 has "FR-003 it stops when the information is missing" 'stop before writing'
 has "FR-003 by hand it reads the catalog" 'catalog-info.yaml'
 has "FR-004 the three verdicts" '`затронут`'

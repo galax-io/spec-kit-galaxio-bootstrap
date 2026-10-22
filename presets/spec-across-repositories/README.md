@@ -9,7 +9,8 @@ before writing; without the file it works by hand.
 
 **Before** the base command: the task's spec, when `specs/` has one, found by the line
 `**Задачи**: BCKLG-<N>` under its title and checked against the task instead of writing another; else the
-feature directory `specs/BCKLG-<N>-<name>` with that line (backlog#403); the candidate repositories (from the
+feature directory `specs/BCKLG-<N>-<name>` with that line, `**Tasks**:` where the files are English only
+(backlog#403); the candidate repositories (from the
 engine's `ecosystem`, or read by hand from the catalog), a verdict with evidence for each.
 
 **After** it, the command adds these to the spec, in its language (`commands/speckit.specify.md` is the full
