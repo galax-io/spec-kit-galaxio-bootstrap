@@ -3,8 +3,8 @@ schema_version: "1.0"
 preset:
   id: "spec-across-repositories"
   name: "Specification across repositories"
-  version: "0.4.1"
-  description: "Wraps specify so that one specification covers a feature that spans several repositories"
+  version: "0.5.0"
+  description: "Wraps specify so that one specification covers a feature that spans several repositories, and implement so that it does one of its tasks in its repository"
   author: "galax-io"
   license: "MIT"
 
@@ -17,6 +17,11 @@ provides:
       name: "speckit.specify"
       file: "commands/speckit.specify.md"
       description: "Decide the affected repositories first, then specify once for all of them"
+      strategy: "wrap"
+    - type: "command"
+      name: "speckit.implement"
+      file: "commands/speckit.implement.md"
+      description: "Find the task's spec, climb the ladder to its tasks, do one task in its repository's working copy"
       strategy: "wrap"
 
 tags:

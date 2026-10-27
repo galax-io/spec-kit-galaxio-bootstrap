@@ -144,11 +144,12 @@ scripts/build-speckit-kit.sh --check   # fail when template/ is stale; CI runs t
 ```
 
 A **layer** is the exception for one repository: `presets/spec-across-repositories/` wraps `specify` so
-that one specification covers several repositories. `scripts/build-speckit-layer.sh <name>` (and `--check`,
-which CI runs) builds from it the two `specify` skills under `layers/<name>/` with the kit's frontmatter and
-model pin and the kit's command whole inside, and `scripts/adopt.sh --speckit --overlay <name> <dir>` puts them
-in a repository (the backlog) with `.specify/speckit-overlay.sha256`, which `scripts/check-speckit.sh` accepts
-for those two files only. No other repository changes.
+that one specification covers several repositories, and `implement` so that it does one task of it in the
+task's repository. `scripts/build-speckit-layer.sh <name>` (and `--check`, which CI runs) builds from it, for
+each command the preset wraps, its two skills under `layers/<name>/` with the kit's frontmatter and model pin
+and the kit's command whole inside, and `scripts/adopt.sh --speckit --overlay <name> <dir>` puts them in a
+repository (the backlog) with `.specify/speckit-overlay.sha256`, which `scripts/check-speckit.sh` accepts for
+those files only. No other repository changes.
 
 Changing Spec Kit (a new version, an extension, a preset) is a pull request to this
 repository: bump `KIT_VERSION` or edit `setup-speckit.sh`, regenerate, tag, and the
