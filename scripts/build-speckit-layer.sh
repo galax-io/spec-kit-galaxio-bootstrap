@@ -1,17 +1,19 @@
 #!/usr/bin/env bash
 #
-# build-speckit-layer.sh — regenerate the layer of a preset: the `specify` skills with the preset's text.
+# build-speckit-layer.sh — regenerate the layer of a preset: the skills of the commands it wraps, with its text.
 #
-# A layer is what one repository gets on top of the organization's kit (template/): the two skill files
-# of a command that a preset wraps, for Claude Code (.claude/skills) and Codex (.agents/skills), and
-# .specify/speckit-overlay.sha256 with their hashes. It is generated here, by the pinned Spec Kit CLI,
+# A layer is what one repository gets on top of the organization's kit (template/): for each command that
+# a preset wraps (a template of its preset.yml with `strategy: "wrap"`), its two skill files, for Claude
+# Code (.claude/skills) and Codex (.agents/skills), and one .specify/speckit-overlay.sha256 with the hashes
+# of them all. It is generated here, by the pinned Spec Kit CLI,
 # from presets/<name>/, and reaches a repository only by `scripts/adopt.sh --speckit --overlay <name>`.
 # Nothing runs `specify` in that repository, and template/ is not touched.
 #
 # The CLI installs a preset's skill for the default integration only, rewrites the skill's frontmatter
 # and drops its model pin. So the CLI is asked once per integration, and only the body it writes is
 # kept; the frontmatter is the kit's own, byte for byte. The build fails unless the kit's body is whole
-# inside the CLI's, with the preset's text before and after it.
+# inside the CLI's, with the preset's text before and after it, marked for that command: «## Before you
+# <verb>» and «## After you <verb>», the verb being the command after `speckit.` (`speckit.implement`).
 #
 # Usage:
 #   scripts/build-speckit-layer.sh <name>           # rewrite layers/<name>/
@@ -26,10 +28,6 @@ here="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 root="$(dirname "$here")"
 template="${TEMPLATE_DIR:-$root/template}"
 OVERLAY=".specify/speckit-overlay.sha256"
-COMMAND_DIR="speckit-specify"
-# What the preset's text must hold around the base: one marker for the part before and one for the part after.
-BEFORE_MARK="## Before you specify"
-AFTER_MARK="## After you specify"
 
 if command -v sha256sum >/dev/null 2>&1; then sha256() { sha256sum "$@"; }; else sha256() { shasum -a 256 "$@"; }; fi
 
@@ -40,17 +38,38 @@ body() { awk 'c>=2{print} /^---$/{c++}' "$1" | sed -e :a -e '/^[[:space:]]*$/{$d
 
 squeeze() { tr -d '[:space:]'; }
 
+# The templates of a preset.yml: "<type> <name> <file> <strategy>" for each item of `provides.templates`, "-" for
+# a field it lacks, so that a template the scan cannot read fails the build instead of dropping out. It reads
+# both list styles (items under the key or at its indent), either quotes, and comments at column 0 or at the end of a
+# line.
+templates() {
+  awk 'function flush() { if (item) print (type == "" ? "-" : type), (name == "" ? "-" : name), (file == "" ? "-" : file), (strategy == "" ? "-" : strategy)
+                          item = 0; type = name = file = strategy = "" }
+       /^[[:space:]]*(#|$)/ { next }
+       /^  templates:[[:space:]]*(#.*)?$/ { t = 1; next }
+       t && (/^[^[:space:]]/ || /^  [^[:space:]-]/) { flush(); t = 0 }
+       !t { next }
+       /^[[:space:]]*- / { flush(); item = 1; sub(/- /, "  ") }
+       { line = $0; sub(/^[[:space:]]+/, "", line); sub(/[[:space:]]+#.*$/, "", line)
+         k = line; sub(/:.*/, "", k); v = line; sub(/^[^:]*:[[:space:]]*/, "", v); gsub(/^["\047]|["\047]$/, "", v)
+         if (k == "type") type = v; else if (k == "name") name = v; else if (k == "file") file = v; else if (k == "strategy") strategy = v }
+       END { flush() }' "$1"
+}
+
 # compose <kit skill> <cli skill> <out> <preset command>: the kit's frontmatter, then the CLI's body once it is shown
-# to hold the kit's whole with the preset's text, and nothing else, before and after it.
+# to hold the kit's whole with the preset's text, and nothing else, before and after it. The markers are those of
+# the kit skill's command: `name: "speckit-implement"` is marked «## Before you implement», «## After you implement».
 compose() {
-  local kit="$1" cli="$2" out="$3" preset="$4" kb cb before after pbefore pafter
+  local kit="$1" cli="$2" out="$3" preset="$4" verb kb cb before after pbefore pafter
   [ "$(frontmatter "$kit" | wc -l)" -ge 2 ] || { echo "error: $kit has no frontmatter" >&2; return 1; }
+  verb="$(frontmatter "$kit" | sed -n 's/^name: *"\{0,1\}speckit-\([^"]*\)"\{0,1\} *$/\1/p')"
+  [ -n "$verb" ] || { echo "error: $kit names no speckit command" >&2; return 1; }
   kb="$(body "$kit")"; cb="$(body "$cli")"
   [ -n "$kb" ] || { echo "error: $kit has no body" >&2; return 1; }
   [[ "$cb" == *"$kb"* ]] || { echo "error: the CLI's skill does not hold the kit's command whole (a new Spec Kit version? the preset needs a new text)" >&2; return 1; }
   before="${cb%%"$kb"*}"; after="${cb#*"$kb"}"
-  [[ "$before" == *"$BEFORE_MARK"* ]] || { echo "error: the preset's text is not before the kit's command" >&2; return 1; }
-  [[ "$after" == *"$AFTER_MARK"* ]] || { echo "error: the preset's text is not after the kit's command" >&2; return 1; }
+  [[ "$before" == *"## Before you $verb"* ]] || { echo "error: the preset's text is not before the kit's command" >&2; return 1; }
+  [[ "$after" == *"## After you $verb"* ]] || { echo "error: the preset's text is not after the kit's command" >&2; return 1; }
   # The CLI adds a heading before the preset's text; whatever else it adds, or whatever of the preset it loses, fails.
   pbefore="$(sed '/{CORE_TEMPLATE}/,$d' "$preset" | squeeze)"; pafter="$(sed '1,/{CORE_TEMPLATE}/d' "$preset" | squeeze)"
   [ -n "$pbefore" ] && [ -n "$pafter" ] || { echo "error: $preset has no text before and after {CORE_TEMPLATE}" >&2; return 1; }
@@ -72,6 +91,21 @@ name="${1:-}"
 [[ "$name" =~ ^[A-Za-z0-9_][A-Za-z0-9_.-]*$ ]] && [ -d "$root/presets/$name" ] || { echo "error: no preset '${name}' under presets/" >&2; exit 2; }
 [ $# -eq 1 ] || { echo "error: one preset name" >&2; exit 2; }
 
+# The commands to build: "<name> <file>", read from the preset before the CLI is asked for anything.
+preset="$root/presets/$name"
+[ -f "$preset/preset.yml" ] || { echo "error: presets/$name has no preset.yml" >&2; exit 1; }
+commands=""
+while read -r type command file strategy; do
+  [ "$type" != - ] && [ "$command" != - ] && [ "$file" != - ] || { echo "error: presets/$name/preset.yml: cannot read the template '$command' (type $type, file $file)" >&2; exit 1; }
+  [ "$strategy" = wrap ] || continue
+  [ "$type" = command ] || { echo "error: presets/$name wraps the $type '$command'; only a command is wrapped" >&2; exit 1; }
+  [[ "$command" =~ ^speckit\.[a-z0-9][a-z0-9.-]*$ ]] || { echo "error: presets/$name wraps '$command', which is not a speckit command" >&2; exit 1; }
+  [[ "$file" != /* && "$file" != *..* ]] || { echo "error: presets/$name: $file is not a file of the preset" >&2; exit 1; }
+  [ -f "$preset/$file" ] || { echo "error: presets/$name has no $file for $command" >&2; exit 1; }
+  commands+="$command $file"$'\n'
+done < <(templates "$preset/preset.yml")
+[ -n "$commands" ] || { echo "error: presets/$name wraps no command (no template with strategy: \"wrap\")" >&2; exit 1; }
+
 KIT_VERSION="$(sed -n 's/^KIT_VERSION=//p' "$here/build-speckit-kit.sh")"
 command -v specify >/dev/null 2>&1 || { echo "error: 'specify' not found on PATH (uv tool install specify-cli --force --from git+https://github.com/github/spec-kit.git@v$KIT_VERSION)" >&2; exit 2; }
 have="$(specify version 2>/dev/null | sed -n 's/.*CLI Version[^0-9]*\([0-9][0-9.]*\).*/\1/p')"
@@ -85,15 +119,17 @@ for pair in claude:.claude codex:.agents; do
   work="$stage/work-$integration"
   mkdir -p "$work"
   tar -cf - -C "$template" .claude/skills .agents/skills .specify | tar -xf - -C "$work"
-  if ! ( cd "$work" && git init -q && specify integration use "$integration" && specify preset add --dev "$root/presets/$name" ) >"$log" 2>&1; then
+  if ! ( cd "$work" && git init -q && specify integration use "$integration" && specify preset add --dev "$preset" ) >"$log" 2>&1; then
     tail -30 "$log" >&2; echo "error: the CLI could not install the preset for $integration" >&2; exit 1
   fi
-  skill="$dir/skills/$COMMAND_DIR/SKILL.md"
-  compose "$template/$skill" "$work/$skill" "$stage/layer/$skill" "$root/presets/$name/commands/speckit.specify.md" || exit 1
+  while read -r command file; do
+    skill="$dir/skills/${command//./-}/SKILL.md"
+    compose "$template/$skill" "$work/$skill" "$stage/layer/$skill" "$preset/$file" || exit 1
+  done <<< "${commands%$'\n'}"
 done
 
 ( cd "$stage/layer" && mkdir -p .specify \
-  && for f in .agents/skills/$COMMAND_DIR/SKILL.md .claude/skills/$COMMAND_DIR/SKILL.md; do sha256 "$f"; done > "$OVERLAY" )
+  && find .agents .claude -name SKILL.md | LC_ALL=C sort | while read -r f; do sha256 "$f"; done > "$OVERLAY" )
 
 target="$root/layers/$name"
 if [ "$mode" = check ]; then

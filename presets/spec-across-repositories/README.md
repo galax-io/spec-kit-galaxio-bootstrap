@@ -1,7 +1,10 @@
 # Preset `spec-across-repositories`
 
-Wraps the Spec Kit `specify` command (only that one) so that a feature of the organization that spans
-several repositories gets one specification, written in `galax-io/galaxio-sdlc-backlog`.
+Wraps two Spec Kit commands, `speckit.specify` and `speckit.implement`, so that a feature of the organization
+that spans several repositories gets one specification, written in `galax-io/galaxio-sdlc-backlog`, and its tasks
+are done one at a time, each in its own repository.
+
+## `speckit.specify`
 
 An engine run is told by the file `.sdlc/run-input.json` in the working copy (the run's input, `runInputVersion` 1);
 its `ecosystem` field is the engine's record of the ecosystem. With the file but no `ecosystem` the command stops
@@ -30,8 +33,32 @@ text and wins where they differ):
 Then it checks the spec against the constitutions of the affected repositories and their neighbours and
 writes its findings in `checklists/requirements.md`, not in the spec.
 
+## `speckit.implement`
+
+The same file `.sdlc/run-input.json` tells it an engine run; its optional fields `task`, `specDirectory`,
+`workingCopies`, `taskId` and `runId` are the run's (`commands/speckit.implement.md` is the full text and wins
+where they differ).
+
+**Before** the base command:
+
+- The spec: found by its tasks line, as the wrapped specify finds it, and used as the feature directory
+  (`SPECIFY_FEATURE_DIRECTORY`).
+- The ladder: without `tasks.md` it calls `speckit-tasks`; without `plan.md`, `speckit-plan` first; without
+  `spec.md`, a short `speckit-specify` from the task's text first. In a run each Markdown file it writes starts with
+  `<!-- generated: run <runId> -->`, so that the stage's gate does not judge it.
+- The working copies: `workingCopies` of the run, or by hand the clones next to this repository of the repositories
+  the spec affects, found by their `catalog-info.yaml`.
+- The task: the one given (`taskId` in a run), else the next open one by the phases and dependencies of
+  `tasks.md`; its `[repo:<name>]` names the working copy its edit goes into.
+
+**After** it: it stops after that one task and gives its mark (`[X]`, `[~] — <what it waits for>` or
+`[!] — <why>`): by hand it writes the mark in `tasks.md`, in a run it names it in the answer and the engine writes
+it, `[X]` once the task's gate accepts it; in a run it does not stop to ask about unchecked checklist items but
+reports them, runs no optional hook of `before_implement` or `after_implement`, and answers in the schema the engine
+gives.
+
 The preset is not installed by `specify preset add` in a repository. `scripts/build-speckit-layer.sh`
-installs it in a scratch project and keeps the two resulting skill files under
+installs it in a scratch project and keeps the four resulting skill files (two commands, Claude Code and Codex) under
 `layers/spec-across-repositories/`; `scripts/adopt.sh --speckit --overlay spec-across-repositories`
 puts them in the backlog. The spec template is not wrapped: a wrapped template needs the preset registry
 and PyYAML to resolve, which the repositories do not have.
