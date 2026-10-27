@@ -52,8 +52,8 @@ where they differ).
   `tasks.md`; its `[repo:<name>]` names the working copy its edit goes into.
 
 **After** it: it stops after that one task, marks it in `tasks.md` (`[X]`, `[~] — <what it waits for>` or
-`[!] — <why>`), runs no optional hook of `before_implement` or `after_implement` in a run, and answers there in
-the schema the engine gives.
+`[!] — <why>`); in a run it does not stop to ask about unchecked checklist items but reports them, runs no
+optional hook of `before_implement` or `after_implement`, and answers in the schema the engine gives.
 
 The preset is not installed by `specify preset add` in a repository. `scripts/build-speckit-layer.sh`
 installs it in a scratch project and keeps the four resulting skill files (two commands, Claude Code and Codex) under

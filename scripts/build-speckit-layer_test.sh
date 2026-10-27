@@ -204,6 +204,8 @@ has "FR-006 cannot is [!] with the reason" '`[!] — '
 has "FR-001 no optional hooks in a run: before" '`before_implement`'
 has "FR-001 no optional hooks in a run: after" '`after_implement`'
 has "FR-001 the answer in the engine's schema" 'schema the engine'
+has "FR-001 in a run the checklists do not stop the task" 'do not stop or ask about the checklists'
+has "FR-001 the answer counts the unchecked checklist items" 'unchecked items of each checklist'
 ! grep -qiE 'start (an|another|a new) agent|spawn|subagent' "$cmd"; check "the text starts no agent" $? ""
 for w in '`speckit.implement`' '`workingCopies`' '`<!-- generated: run <runId> -->`' 'one task'; do
   grep -qF -- "$w" "$root/presets/spec-across-repositories/README.md"; check "the README says what the implement wrap adds: $w" $? ""

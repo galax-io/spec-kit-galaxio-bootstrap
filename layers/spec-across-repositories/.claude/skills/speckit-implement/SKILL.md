@@ -48,8 +48,8 @@ other agent for any repository.
    `[X]`. A task names its repository as `[repo:<name>]`, and its edit goes into that repository's working copy; a
    task without the label is for the spec's only repository. No open task: say so and stop.
 
-Then implement as below, that one task only. Read steps 5 to 8 first: they change what the steps below say about
-every task and about the hooks.
+Then implement as below, that one task only. Read steps 5 to 9 first: they change what the steps below say about
+every task, the checklists and the hooks.
 
 
 ## User Input
@@ -277,8 +277,11 @@ Report final status with summary of completed work.
 6. **The mark.** In `tasks.md`, change only that task's mark, and keep every other line as it is: `[X]` when it is
    done; `[~] — <what it waits for>` when it waits for an event outside the run; `[!] — <why, with the evidence>`
    when the input makes it impossible. A task whose repository has no working copy is `[!]`.
-7. **The hooks.** In a run, do not run or offer the optional hooks of `before_implement` and `after_implement` in
+7. **The checklists.** In a run, do not stop or ask about the checklists of the feature directory: nobody answers a
+   run. Count them as below says, go on with the task, and give the unchecked items of each checklist in the answer.
+   By hand, ask as below says.
+8. **The hooks.** In a run, do not run or offer the optional hooks of `before_implement` and `after_implement` in
    `.specify/extensions.yml`: the engine commits and reviews the work. By hand they are offered as above.
-8. **The answer.** In a run, answer only in the schema the engine gives in its instruction, and say there the task's
-   id, its mark and, for `[~]` or `[!]`, the reason. By hand, report the task, its mark, the files changed in each
+9. **The answer.** In a run, answer only in the schema the engine gives in its instruction, and say there the task's
+   id, its mark, for `[~]` or `[!]` the reason, and the unchecked items of each checklist, if any. By hand, report the task, its mark, the files changed in each
    repository and the next open task.
