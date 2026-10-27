@@ -38,15 +38,20 @@ body() { awk 'c>=2{print} /^---$/{c++}' "$1" | sed -e :a -e '/^[[:space:]]*$/{$d
 
 squeeze() { tr -d '[:space:]'; }
 
-# The templates of a preset.yml that are wrapped: "<type> <name> <file>" for each one of `provides.templates`
-# with `strategy: "wrap"`.
-wrapped() {
-  awk 'function flush() { if (strategy == "wrap") print type, name, file; type = name = file = strategy = "" }
-       /^  templates:[[:space:]]*$/ { t = 1; next }
-       t && (/^[^[:space:]]/ || /^  [^[:space:]]/) { flush(); t = 0 }
+# The templates of a preset.yml: "<type> <name> <file> <strategy>" for each item of `provides.templates`, "-" for
+# a field it lacks, so that a template the scan cannot read fails the build instead of dropping out. It reads
+# both list styles (items under the key or at its indent), either quotes, and comments at column 0 or at the end of a
+# line.
+templates() {
+  awk 'function flush() { if (item) print (type == "" ? "-" : type), (name == "" ? "-" : name), (file == "" ? "-" : file), (strategy == "" ? "-" : strategy)
+                          item = 0; type = name = file = strategy = "" }
+       /^[[:space:]]*(#|$)/ { next }
+       /^  templates:[[:space:]]*(#.*)?$/ { t = 1; next }
+       t && (/^[^[:space:]]/ || /^  [^[:space:]-]/) { flush(); t = 0 }
        !t { next }
-       /^[[:space:]]*- / { flush(); sub(/- /, "  ") }
-       { line = $0; gsub(/^[[:space:]]+|"/, "", line); k = line; sub(/:.*/, "", k); v = line; sub(/^[^:]*:[[:space:]]*/, "", v)
+       /^[[:space:]]*- / { flush(); item = 1; sub(/- /, "  ") }
+       { line = $0; sub(/^[[:space:]]+/, "", line); sub(/[[:space:]]+#.*$/, "", line)
+         k = line; sub(/:.*/, "", k); v = line; sub(/^[^:]*:[[:space:]]*/, "", v); gsub(/^["\047]|["\047]$/, "", v)
          if (k == "type") type = v; else if (k == "name") name = v; else if (k == "file") file = v; else if (k == "strategy") strategy = v }
        END { flush() }' "$1"
 }
@@ -90,12 +95,15 @@ name="${1:-}"
 preset="$root/presets/$name"
 [ -f "$preset/preset.yml" ] || { echo "error: presets/$name has no preset.yml" >&2; exit 1; }
 commands=""
-while read -r type command file; do
+while read -r type command file strategy; do
+  [ "$type" != - ] && [ "$command" != - ] && [ "$file" != - ] || { echo "error: presets/$name/preset.yml: cannot read the template '$command' (type $type, file $file)" >&2; exit 1; }
+  [ "$strategy" = wrap ] || continue
   [ "$type" = command ] || { echo "error: presets/$name wraps the $type '$command'; only a command is wrapped" >&2; exit 1; }
   [[ "$command" =~ ^speckit\.[a-z0-9][a-z0-9.-]*$ ]] || { echo "error: presets/$name wraps '$command', which is not a speckit command" >&2; exit 1; }
+  [[ "$file" != /* && "$file" != *..* ]] || { echo "error: presets/$name: $file is not a file of the preset" >&2; exit 1; }
   [ -f "$preset/$file" ] || { echo "error: presets/$name has no $file for $command" >&2; exit 1; }
   commands+="$command $file"$'\n'
-done < <(wrapped "$preset/preset.yml")
+done < <(templates "$preset/preset.yml")
 [ -n "$commands" ] || { echo "error: presets/$name wraps no command (no template with strategy: \"wrap\")" >&2; exit 1; }
 
 KIT_VERSION="$(sed -n 's/^KIT_VERSION=//p' "$here/build-speckit-kit.sh")"

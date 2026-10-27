@@ -6,8 +6,8 @@
 # small files with a stand-in for the CLI. What is under test is the promise of the layer: for each
 # command the preset wraps, the kit's frontmatter (and so its model pin) and the kit's whole command
 # are kept, the preset's text with that command's markers is before and after it, and anything else
-# fails the build. The preset's
-# text is checked for the steps of spec 296 (galaxio-sdlc-backlog), since no suite can run an agent.
+# fails the build. Since no suite can run an agent, the preset's text is checked for the steps of its
+# specs in galaxio-sdlc-backlog: spec 296 for specify, BCKLG-456 for implement.
 
 set -uo pipefail
 
@@ -129,6 +129,34 @@ grep -q 'speckit-specify' "$up/layers/one/.specify/speckit-overlay.sha256" && [ 
 build replaced >"$tmp/out" 2>&1 && [ ! -e "$up/layers/replaced/.claude/skills/speckit-implement" ] && [ "$(grep -c . "$up/layers/replaced/.specify/speckit-overlay.sha256")" -eq 2 ]; check "a command the preset does not wrap is not in the layer" $? "$(cat "$tmp/out")"
 build none >"$tmp/out" 2>&1; [ $? -eq 1 ] && grep -q 'wraps no command' "$tmp/out"; check "a preset that wraps no command fails" $? "$(cat "$tmp/out")"
 build crossed >"$tmp/out" 2>&1; [ $? -eq 1 ] && grep -q 'not before' "$tmp/out" && [ ! -e "$up/layers/crossed" ]; check "a command whose text has another command's markers fails" $? "$(cat "$tmp/out")"
+# preset.yml in the other styles YAML allows: list items at the key's indent, single quotes, comments at the end of
+# a line and at column 0. Every template is read, or the build fails.
+preset styled specify:wrap implement:wrap
+cat > "$up/presets/styled/preset.yml" <<'YAML'
+schema_version: "1.0"
+preset:
+  id: "styled"
+provides:
+  templates:
+  - type: 'command'
+    name: speckit.specify   # the first
+    file: "commands/speckit.specify.md"
+    strategy: "wrap"   # keep
+# the second, written by another hand
+  - type: command
+    name: 'speckit.implement'
+    file: commands/speckit.implement.md
+    strategy: 'wrap'
+tags:
+  - "x"
+YAML
+build styled >"$tmp/out" 2>&1 && [ "$(grep -c . "$up/layers/styled/.specify/speckit-overlay.sha256")" -eq 4 ]; check "a preset.yml in another YAML style builds both commands" $? "$(cat "$tmp/out")"
+preset unnamed specify:wrap implement:wrap
+sed -i.bak '/name: "speckit.implement"/d' "$up/presets/unnamed/preset.yml"
+build unnamed >"$tmp/out" 2>&1; [ $? -eq 1 ] && grep -q 'cannot read' "$tmp/out" && [ ! -e "$up/layers/unnamed" ]; check "a template it cannot read fails the build, not drops the command" $? "$(cat "$tmp/out")"
+preset climbing specify:wrap
+sed -i.bak 's|file: "commands/speckit.specify.md"|file: "../one/commands/speckit.specify.md"|' "$up/presets/climbing/preset.yml"
+build climbing >"$tmp/out" 2>&1; [ $? -eq 1 ] && grep -q 'not a file of the preset' "$tmp/out"; check "a template's file outside the preset fails" $? "$(cat "$tmp/out")"
 
 echo "the preset's text (spec 296)"
 cmd="$root/presets/spec-across-repositories/commands/speckit.specify.md"
@@ -206,6 +234,15 @@ has "FR-006 in a run the mark is named in the answer" 'name the mark in the answ
 has "FR-001 no optional hooks in a run: before" '`before_implement`'
 has "FR-001 no optional hooks in a run: after" '`after_implement`'
 has "FR-001 the answer in the engine's schema" 'schema the engine'
+has "FR-001 in a run a missing field of the input is said, not asked" 'stop and name it in the answer'
+has "FR-001 by hand the task number is asked for" 'By hand, ask for it'
+has "FR-001 the ladder's specify may stop" 'If the wrapped specify stops'
+has "FR-002 the spec's files are written in the backlog's working copy" 'are written in this working copy'
+has "FR-003 by hand the clones are next to the main clone" '--git-common-dir'
+has "FR-003 in a run a missing working copy is the engine's to open" '`[~] — needs the working copy of galax-io/<name>`'
+has "FR-006 a waiting or impossible task holds back only its dependants" 'holds back only the tasks that depend on it'
+has "FR-007 in a run the task is the engine's, never the next open one" 'in a run `taskId`, and without it step 0'
+long="$(LC_ALL=en_US.UTF-8 grep -nE '^.{121,}' "$cmd")"; [ -z "$long" ]; check "no line of the implement text is longer than 120" $? "$long"
 has "FR-001 in a run the checklists do not stop the task" 'do not stop or ask about the checklists'
 has "FR-001 the answer counts the unchecked checklist items" 'unchecked items of each checklist'
 ! grep -qiE 'start (an|another|a new) agent|spawn|subagent' "$cmd"; check "the text starts no agent" $? ""
