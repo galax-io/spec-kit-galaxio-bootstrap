@@ -51,9 +51,11 @@ where they differ).
 - The task: the one given (`taskId` in a run), else the next open one by the phases and dependencies of
   `tasks.md`; its `[repo:<name>]` names the working copy its edit goes into.
 
-**After** it: it stops after that one task, marks it in `tasks.md` (`[X]`, `[~] — <what it waits for>` or
-`[!] — <why>`); in a run it does not stop to ask about unchecked checklist items but reports them, runs no
-optional hook of `before_implement` or `after_implement`, and answers in the schema the engine gives.
+**After** it: it stops after that one task and gives its mark (`[X]`, `[~] — <what it waits for>` or
+`[!] — <why>`): by hand it writes the mark in `tasks.md`, in a run it names it in the answer and the engine writes
+it, `[X]` once the task's gate accepts it; in a run it does not stop to ask about unchecked checklist items but
+reports them, runs no optional hook of `before_implement` or `after_implement`, and answers in the schema the engine
+gives.
 
 The preset is not installed by `specify preset add` in a repository. `scripts/build-speckit-layer.sh`
 installs it in a scratch project and keeps the four resulting skill files (two commands, Claude Code and Codex) under

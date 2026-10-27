@@ -46,7 +46,7 @@ other agent for any repository.
    task without the label is for the spec's only repository. No open task: say so and stop.
 
 Then implement as below, that one task only. Read steps 5 to 9 first: they change what the steps below say about
-every task, the checklists and the hooks.
+every task, its mark, the checklists and the hooks.
 
 
 ## User Input
@@ -271,14 +271,17 @@ Report final status with summary of completed work.
 
 5. **Stop after the task.** Do not go on to the next task, even when it is open and in the same phase; the next
    call does it.
-6. **The mark.** In `tasks.md`, change only that task's mark, and keep every other line as it is: `[X]` when it is
-   done; `[~] — <what it waits for>` when it waits for an event outside the run; `[!] — <why, with the evidence>`
-   when the input makes it impossible. A task whose repository has no working copy is `[!]`.
+6. **The mark.** The task's mark is `[X]` when it is done; `[~] — <what it waits for>` when it waits for an event
+   outside the run; `[!] — <why, with the evidence>` when the input makes it impossible. A task whose repository has
+   no working copy is `[!]`. In a run the engine writes the marks, `[X]` only once the task's gate has accepted it:
+   do not change `tasks.md`'s marks, and name the mark in the answer. By hand, in `tasks.md`, change only that task's
+   mark, and keep every other line as it is.
+   This step replaces what the steps above say about marking a task `[X]`.
 7. **The checklists.** In a run, do not stop or ask about the checklists of the feature directory: nobody answers a
    run. Count them as below says, go on with the task, and give the unchecked items of each checklist in the answer.
    By hand, ask as below says.
 8. **The hooks.** In a run, do not run or offer the optional hooks of `before_implement` and `after_implement` in
    `.specify/extensions.yml`: the engine commits and reviews the work. By hand they are offered as above.
 9. **The answer.** In a run, answer only in the schema the engine gives in its instruction, and say there the task's
-   id, its mark, for `[~]` or `[!]` the reason, and the unchecked items of each checklist, if any. By hand, report the task, its mark, the files changed in each
+   id, its mark (step 6), for `[~]` or `[!]` the reason, and the unchecked items of each checklist, if any. By hand, report the task, its mark, the files changed in each
    repository and the next open task.
