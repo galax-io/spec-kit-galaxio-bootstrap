@@ -55,7 +55,8 @@ One label scheme for every repository.
 EOF
 printf '# {{ project_name }}\n' > "$tpl/CLAUDE.md.jinja"
 for f in scripts/check-linkage.sh scripts/check-linkage_test.sh .claude/hooks/linkage-guard.sh \
-         .claude/hooks/linkage-guard_test.sh .githooks/pre-push .githooks/pre-push_test.sh; do
+         .claude/hooks/linkage-guard_test.sh .githooks/pre-push .githooks/pre-push_test.sh \
+         .githooks/post-checkout .githooks/post-checkout_test.sh; do
   printf '#!/usr/bin/env bash\n# template %s\n' "$f" > "$tpl/$f"
   chmod +x "$tpl/$f"
 done
@@ -169,6 +170,7 @@ run "$repo"
 check "files: the linkage script is added" $([ -f "$repo/scripts/check-linkage.sh" ] && echo 0 || echo 1) "out=$out"
 check "files: it is executable" $([ -x "$repo/scripts/check-linkage.sh" ] && echo 0 || echo 1) "out=$out"
 check "files: the hooks are added" $([ -f "$repo/.claude/hooks/linkage-guard.sh" ] && [ -f "$repo/.githooks/pre-push" ] && echo 0 || echo 1) "out=$out"
+check "files: the post-checkout hook and its test are added" $([ -x "$repo/.githooks/post-checkout" ] && [ -f "$repo/.githooks/post-checkout_test.sh" ] && echo 0 || echo 1) "out=$out"
 check "files: no .copier-answers.yml is created" $([ ! -e "$repo/.copier-answers.yml" ] && echo 0 || echo 1) "out=$out"
 check "files: the added files are reported" $(has 'added: scripts/check-linkage.sh' && echo 0 || echo 1) "out=$out"
 
@@ -190,6 +192,16 @@ run "$repo"
 check "test-follows-script: the template's test is not added next to a different script" $([ ! -e "$repo/scripts/check-linkage_test.sh" ] && echo 0 || echo 1) "out=$out"
 check "test-follows-script: it says why" $(has 'skipped: scripts/check-linkage_test.sh (its script differs from the template)' && echo 0 || echo 1) "out=$out"
 check "test-follows-script: the other tests are still added" $([ -f "$repo/.githooks/pre-push_test.sh" ] && [ -f "$repo/.claude/hooks/linkage-guard_test.sh" ] && echo 0 || echo 1) "out=$out"
+# 7c. a hook's test belongs to the hook: next to a post-checkout that differs from the template,
+#     the template's post-checkout_test.sh is not added
+new_repo test-follows-hook
+write AGENTS.md $'# Mine\n\n## Commits & PRs\n'
+write .githooks/post-checkout $'#!/usr/bin/env bash\n# my own post-checkout\n'
+run "$repo"
+check "test-follows-hook: the template's test is not added next to a different hook" $([ ! -e "$repo/.githooks/post-checkout_test.sh" ] && echo 0 || echo 1) "out=$out"
+check "test-follows-hook: it says why" $(has 'skipped: .githooks/post-checkout_test.sh (its script differs from the template)' && echo 0 || echo 1) "out=$out"
+check "test-follows-hook: pre-push and its test are still added" $([ -f "$repo/.githooks/pre-push" ] && [ -f "$repo/.githooks/pre-push_test.sh" ] && echo 0 || echo 1) "out=$out"
+
 new_repo test-follows-same
 write AGENTS.md $'# Mine\n\n## Commits & PRs\n'
 mkdir -p "$repo/scripts"; cp "$tpl/scripts/check-linkage.sh" "$repo/scripts/check-linkage.sh"
@@ -250,7 +262,8 @@ tpl2="$tmp/tpl2"; mkdir -p "$tpl2/template/scripts" "$tpl2/template/.claude/hook
     printf '# {{ project_name }}\n' > template/CLAUDE.md.jinja
     printf 'name: linkage\n# %s\n' "$1" > template/.github/workflows/linkage.yml
     for f in scripts/check-linkage.sh scripts/check-linkage_test.sh .claude/hooks/linkage-guard.sh \
-             .claude/hooks/linkage-guard_test.sh .githooks/pre-push .githooks/pre-push_test.sh; do
+             .claude/hooks/linkage-guard_test.sh .githooks/pre-push .githooks/pre-push_test.sh \
+             .githooks/post-checkout .githooks/post-checkout_test.sh; do
       printf '#!/usr/bin/env bash\n# %s %s\n' "$f" "$1" > "template/$f"
     done
   }
