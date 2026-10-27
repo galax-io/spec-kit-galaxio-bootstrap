@@ -26,7 +26,8 @@ It never replaces a file the repository has:
   the PR check  .github/workflows/linkage.yml runs the gate on every pull request; it is not
               added when a workflow of the repository already runs `check-linkage.sh --pr`.
   the gate    scripts/check-linkage.sh, its test, .claude/hooks/linkage-guard.sh, its
-              test, .githooks/pre-push and its test: each is added when missing;
+              test, .githooks/pre-push and its test, .githooks/post-checkout and its
+              test: each is added when missing;
               one that exists is kept and reported as "same as the template" or
               "differs from the template" so the difference can be reviewed.
               A test is not added next to a script that differs from the template:
@@ -365,15 +366,18 @@ fi
 # The gate: each file is added when missing and otherwise only compared.
 for f in scripts/check-linkage.sh scripts/check-linkage_test.sh \
          .claude/hooks/linkage-guard.sh .claude/hooks/linkage-guard_test.sh \
-         .githooks/pre-push .githooks/pre-push_test.sh; do
+         .githooks/pre-push .githooks/pre-push_test.sh \
+         .githooks/post-checkout .githooks/post-checkout_test.sh; do
   # A test belongs to its script: next to a script that differs from the template, the
   # template's test would assert behaviour the script lacks.
   script="${f%_test.sh}.sh"
-  if [ ! -e "$TARGET/$f" ] && [ "$script" != "$f" ] && [ "${f##*/}" != "pre-push_test.sh" ] \
+  # A hook has no .sh: its test belongs to the hook named without _test.sh.
+  hook="${f%_test.sh}"
+  if [ ! -e "$TARGET/$f" ] && [ "$script" != "$f" ] && [ "${f#.githooks/}" = "$f" ] \
      && [ -e "$TARGET/$script" ] && ! cmp -s "$TARGET/$script" "$TEMPLATE_DIR/$script"; then
     echo "skipped: $f (its script differs from the template)"
-  elif [ ! -e "$TARGET/$f" ] && [ "${f##*/}" = "pre-push_test.sh" ] \
-     && [ -e "$TARGET/.githooks/pre-push" ] && ! cmp -s "$TARGET/.githooks/pre-push" "$TEMPLATE_DIR/.githooks/pre-push"; then
+  elif [ ! -e "$TARGET/$f" ] && [ "${f#.githooks/}" != "$f" ] && [ "$hook" != "$f" ] \
+     && [ -e "$TARGET/$hook" ] && ! cmp -s "$TARGET/$hook" "$TEMPLATE_DIR/$hook"; then
     echo "skipped: $f (its script differs from the template)"
   elif [ ! -e "$TARGET/$f" ]; then
     put "$f" "$TEMPLATE_DIR/$f"

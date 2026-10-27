@@ -9,6 +9,7 @@
 #   .claude/settings.json PreToolUse hook wiring (linkage-guard)
 #   .claude/hooks/linkage-guard.sh   + its suite — gates a release before the command runs
 #   .githooks/pre-push               + its suite — gates a push from any client
+#   .githooks/post-checkout          + its suite — what a new worktree gets of AGENTS.md and CLAUDE.md
 #   scripts/check-linkage.sh         + its suite — the issue <-> PR <-> milestone check
 #   setup-speckit.sh      spec-kit extension/preset installer
 #   .claude/agents/       tiered sub-agents (deep-researcher, infra-worker, trivial-worker)
@@ -87,6 +88,8 @@ copy "$HERE/hooks/linkage-guard.sh"         ".claude/hooks/linkage-guard.sh"
 copy "$HERE/hooks/linkage-guard_test.sh"    ".claude/hooks/linkage-guard_test.sh"
 copy "$HERE/hooks/pre-push"                 ".githooks/pre-push"
 copy "$HERE/hooks/pre-push_test.sh"         ".githooks/pre-push_test.sh"
+copy "$HERE/hooks/post-checkout"            ".githooks/post-checkout"
+copy "$HERE/hooks/post-checkout_test.sh"    ".githooks/post-checkout_test.sh"
 copy "$HERE/scripts/check-linkage.sh"       "scripts/check-linkage.sh"
 copy "$HERE/scripts/check-linkage_test.sh"  "scripts/check-linkage_test.sh"
 copy "$HERE/setup-speckit.sh"               "setup-speckit.sh"
@@ -96,6 +99,7 @@ copy "$HERE/.claude/agents/trivial-worker.md"  ".claude/agents/trivial-worker.md
 
 chmod +x "$TARGET/.claude/hooks/linkage-guard.sh" "$TARGET/.claude/hooks/linkage-guard_test.sh" \
          "$TARGET/.githooks/pre-push" "$TARGET/.githooks/pre-push_test.sh" \
+         "$TARGET/.githooks/post-checkout" "$TARGET/.githooks/post-checkout_test.sh" \
          "$TARGET/scripts/check-linkage.sh" "$TARGET/scripts/check-linkage_test.sh" \
          "$TARGET/setup-speckit.sh" 2>/dev/null || true
 # pre-push is inert until git is pointed at it, and that is per-clone config
@@ -104,7 +108,7 @@ chmod +x "$TARGET/.claude/hooks/linkage-guard.sh" "$TARGET/.claude/hooks/linkage
 echo
 echo "==> One step left, once per clone:"
 echo "      git config core.hooksPath .githooks"
-echo "    Without it .githooks/pre-push never runs, and nothing server-side checks"
+echo "    Without it .githooks/pre-push and .githooks/post-checkout never run, and nothing server-side checks"
 echo "    the release unless your release workflow runs scripts/check-linkage.sh."
 
 # keep spec-kit dirs from being empty in git
