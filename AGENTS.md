@@ -123,7 +123,7 @@ A task of the backlog has one number across the organization: `BCKLG-<N>`, where
 - **Spec-first.** `specs/BCKLG-<N>-<feature>/` artifacts → `docs(speckit): add BCKLG-<N>-<feature> spec/plan/tasks` commit BEFORE any `feat`/`fix`. Never folded into implementation.
 - **1 issue = 1 commit.** Each tracked GitHub issue maps to one semantic commit (`feat(scope): … (#NNN)`), green on its own (`bash -n setup-speckit.sh scripts/check-linkage.sh .claude/hooks/linkage-guard.sh`). Docs, tweaks, and out-of-scope improvements go in separate PRs — never mixed with issue commits.
 - **Intent, not path.** No add-then-remove within a PR. Squash churn before review.
-- **1 concern per PR.** Feature ≠ docs/README. Stack dependent PRs; update with `--force-with-lease`.
+- **One PR per repository part of a feature, a commit per concern.** What its checks find on the way (a dependency, a setting, a rule's findings) is a commit of that PR, not a PR of its own; docs and README that are not the feature's are another PR. Stack a second PR only when the first cannot merge without it; update with `--force-with-lease`.
 - **Idiomatic code.** Follow the language's idioms and the conventions already in the codebase; no control-flow-by-exception, no dead/duplicated code.
 
 ## Agents & Models (ALWAYS)
