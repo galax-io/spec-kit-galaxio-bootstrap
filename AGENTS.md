@@ -159,7 +159,7 @@ Route work by the reasoning it needs, not by habit; parallelize only where agent
 
 ## Release Process (MANDATORY)
 
-Trunk-based with release branches. Trunk is `main`; `release/*` branches are cut from `main` for stabilization. Pushing a `vX.Y.Z` tag on `main` or a `release/*` branch triggers the release workflow (git tag vX.Y.Z, consumed via copier copy/update gh:galax-io/spec-kit-galaxio-bootstrap) and creates a GitHub Release (manual GitHub Release).
+Trunk-based with release branches. Trunk is `main`; `release/*` branches are cut from `main` for stabilization. Pushing a `vX.Y.Z` tag on `main` or a `release/*` branch triggers the release workflow (git tag vX.Y.Z, consumed via copier copy/update gh:galax-io/spec-kit-galaxio-bootstrap) and creates a GitHub Release (git-cliff).
 
 ### Minor/Major release (e.g. 1.2.0, 2.0.0)
 
