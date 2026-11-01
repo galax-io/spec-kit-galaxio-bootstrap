@@ -1,0 +1,98 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "v[0-9]+.[0-9]+.[0-9]+"
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Existing vX.Y.Z tag to (re-)publish a GitHub Release for"
+        required: true
+
+permissions:
+  contents: write
+
+env:
+  GIT_CLIFF_VERSION: "2.14.2"
+  GIT_CLIFF_SHA512: "26d1f7c8ea2400f2ccb0b2e7f321635f600b583bf4cd1f7afaa5e8c24068ad1088a2504e0a4d9f4333d4bb20a80329327d9462634343ee3af91e1a7fbdc6f18a"
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Resolve tag
+        id: tag
+        env:
+          TAG: ${{ inputs.tag || github.ref_name }}
+        run: echo "name=${TAG}" >> "$GITHUB_OUTPUT"
+
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ steps.tag.outputs.name }}
+          fetch-depth: 0
+          fetch-tags: true
+          persist-credentials: false
+
+      - name: Validate tag is on main or its matching release branch
+        env:
+          TAG: ${{ steps.tag.outputs.name }}
+        run: |
+          set -euo pipefail
+          tag="$TAG"
+          if [[ ! "$tag" =~ ^v([0-9]+\.[0-9]+)\.[0-9]+$ ]]; then
+            echo "::error::tag '$tag' is not shaped like vX.Y.Z"
+            exit 1
+          fi
+          minor="${BASH_REMATCH[1]}"
+          release_branch="release/${minor}.0"
+          contains="$(git branch -r --contains "$tag")"
+          if ! grep -qx "  origin/main" <<<"$contains" && ! grep -qx "  origin/${release_branch}" <<<"$contains"; then
+            echo "::error::tag $tag is not reachable from origin/main or origin/${release_branch}"
+            exit 1
+          fi
+
+      - name: Install git-cliff (pinned, checksum-verified)
+        run: |
+          set -euo pipefail
+          asset="git-cliff-${GIT_CLIFF_VERSION}-x86_64-unknown-linux-gnu.tar.gz"
+          curl -fsSLO "https://github.com/orhun/git-cliff/releases/download/v${GIT_CLIFF_VERSION}/${asset}"
+          echo "${GIT_CLIFF_SHA512}  ${asset}" | sha512sum -c -
+          tar -xzf "${asset}"
+          install -m 0755 "git-cliff-${GIT_CLIFF_VERSION}/git-cliff" /usr/local/bin/git-cliff
+
+      - name: Use the current cliff.toml
+        run: |
+          set -euo pipefail
+          # A tag can predate cliff.toml itself (e.g. a backfilled release), in
+          # which case the tagged tree has no config to check out. Formatting
+          # should always follow the current config, not whatever existed (or
+          # didn't) at tag time.
+          if [ ! -f cliff.toml ]; then
+            git show origin/main:cliff.toml > cliff.toml
+          fi
+          test -s cliff.toml
+
+      - name: Generate changelog
+        run: |
+          set -euo pipefail
+          git-cliff --config cliff.toml --latest --strip header -o RELEASE_NOTES.md 2> cliff.stderr
+          cat cliff.stderr >&2
+          if grep -q "using the default configuration" cliff.stderr; then
+            echo "::error::git-cliff fell back to its default configuration instead of cliff.toml"
+            exit 1
+          fi
+
+      - name: Create or update GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ steps.tag.outputs.name }}
+        run: |
+          set -euo pipefail
+          tag="$TAG"
+          if gh release view "$tag" >/dev/null 2>&1; then
+            gh release edit "$tag" --title "$tag" --notes-file RELEASE_NOTES.md
+          else
+            gh release create "$tag" --title "$tag" --notes-file RELEASE_NOTES.md --verify-tag
+          fi
