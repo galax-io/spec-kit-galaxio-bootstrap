@@ -15,6 +15,15 @@ A feature of this organization has one specification, in `galax-io/galaxio-sdlc-
 several repositories. This command does one task of it per call. Do steps 0 to 4 first, in this session, with no
 other agent for any repository.
 
+**One session per user story.** In a run the engine calls this command for every task of one user story (the tasks
+of `tasks.md` in one repository with the same `[US<n>]`, or with none) in the same session, one task per call, and
+for the next story in a new one. On a call in a session that already did a task of the story, do not do steps 0 to 3
+again and do not read again the spec, the plan, the contracts or the code you read: take the run input's `taskId` and
+read again only what changed since (the engine's commits, a file the call's note names) or what you no longer have.
+Text after the task's id in the arguments is the engine's note for this call: what it did with your last call's task,
+why the previous attempt failed, the items to answer, the maintainer's instructions. The working copies hold only what
+the engine committed: check with git before you trust what you remember of a change.
+
 0. **The run.** You are in an engine run when the file `.sdlc/run-input.json` exists in the working copy: it is the
    run's input (`runInputVersion` 1), which the engine always writes. Read its fields `task`, `specDirectory`,
    `workingCopies`, `taskId` and `runId`. In a run nobody answers a question: where a step below needs one of these
@@ -277,8 +286,8 @@ Report final status with summary of completed work.
 
 ## After you implement: one task, its mark and the answer
 
-5. **Stop after the task.** Do not go on to the next task, even when it is open and in the same phase; the next
-   call does it.
+5. **Stop after the task.** Do not go on to the next task, even when it is open and in the same phase or story; the
+   next call does it, in a run in this same session.
 6. **The mark.** The task's mark is `[X]` when it is done; `[~] — <what it waits for>` when it waits for an event
    outside the run; `[!] — <why, with the evidence>` when the input makes it impossible. A task whose repository has
    no working copy is, in a run, `[~] — needs the working copy of galax-io/<name>`, which the engine opens before it
