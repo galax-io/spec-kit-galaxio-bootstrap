@@ -177,7 +177,7 @@ has "FR-003 without the file it is by hand" 'Without the file you are working by
 has "FR-003 the file without the record stops" 'the file but no `ecosystem`, stop before writing anything'
 grep -qF '`.sdlc/run-input.json`' "$root/presets/spec-across-repositories/README.md"; check "FR-003 the README names the file" $? ""
 grep -qF 'galaxio.io/uses.galaxio-sdlc-orchestrator' "$root/catalog-info.yaml"; check "FR-003 the catalog declares the contract with the engine" $? ""
-grep -q 'version: "0.5.0"' "$root/presets/spec-across-repositories/preset.yml"; check "the preset is 0.5.0" $? ""
+grep -q 'version: "0.6.0"' "$root/presets/spec-across-repositories/preset.yml"; check "the preset is 0.6.0" $? ""
 has "FR-003 it stops when the information is missing" 'stop before writing'
 has "FR-003 by hand it reads the catalog" 'catalog-info.yaml'
 has "FR-004 the three verdicts" '`затронут`'
@@ -200,7 +200,7 @@ has "FR-011 one repository has one row" 'one row'
 ! grep -qiE 'start (an|another|a new) agent|spawn|subagent' "$cmd"; check "FR-004 the text starts no agent" $? ""
 [ "$(grep -c 'strategy: "wrap"' "$root/presets/spec-across-repositories/preset.yml")" -eq "$(grep -c 'type: "' "$root/presets/spec-across-repositories/preset.yml")" ]; check "FR-012 the preset wraps, it does not replace" $? ""
 ! grep -q 'type: "template"' "$root/presets/spec-across-repositories/preset.yml"; check "FR-001 no template is wrapped" $? ""
-[ "$(grep -c 'type: "' "$root/presets/spec-across-repositories/preset.yml")" -eq 2 ] && grep -q 'name: "speckit.specify"' "$root/presets/spec-across-repositories/preset.yml" && grep -q 'name: "speckit.implement"' "$root/presets/spec-across-repositories/preset.yml"; check "FR-001 two commands are provided, specify and implement (backlog#456)" $? ""
+[ "$(grep -c 'type: "' "$root/presets/spec-across-repositories/preset.yml")" -eq 3 ] && grep -q 'name: "speckit.specify"' "$root/presets/spec-across-repositories/preset.yml" && grep -q 'name: "speckit.implement"' "$root/presets/spec-across-repositories/preset.yml" && grep -q 'name: "speckit.tasks"' "$root/presets/spec-across-repositories/preset.yml"; check "FR-001 three commands are provided, specify, implement and tasks (BCKLG-791)" $? ""
 
 echo "the implement text (backlog#456)"
 cmd="$root/presets/spec-across-repositories/commands/speckit.implement.md"
@@ -223,14 +223,24 @@ has "FR-003 the working copies of a run" '`workingCopies`'
 has "FR-001 by hand from the catalog" 'catalog-info.yaml'
 has "FR-001 by hand from the neighbouring clones" 'clones next to this repository'
 has "FR-001 the task given in a run" '`taskId`'
-has "FR-001 else the next open one by phases and dependencies" 'phases and dependencies'
+has "FR-001 by hand the open tasks by phase, as the base command" 'phase by phase, as the base command does'
 has "FR-003 a task names its repository" '`[repo:<name>]`'
-has "FR-006 stop after the one task" 'Do not go on to the next task'
+has "BCKLG-791 a run does a whole user story per call" 'one call of this command does a whole user story'
+has "BCKLG-791 the tasks of a call are those it names" 'the tasks to do are those the call names'
+has "BCKLG-791 the run input's tasks field" 'the field `tasks` of the run input'
+has "BCKLG-791 taskId is read as the first, for back-compat" '`taskId` is read as the first of'
+has "BCKLG-791 every named task, in order, test first" 'do every named task in order and do not stop after the first one'
+has "BCKLG-791 test first for each task" 'the test first and see it fail'
+has "BCKLG-791 lint, type check and the whole suite once at the end" 'run the repository'"'"'s lint, type check and whole test suite once'
+has "BCKLG-791 the engine commits, the call does not" 'Do not'$'\n''   commit: the engine commits'
+has "BCKLG-791 the answer has a mark per task" '`tasks: [{id, mark, reason?}]`'
+has "BCKLG-791 by hand every open task, phase by phase" 'open task (`- [ ]`) of `tasks.md`'
+! grep -qF -e 'Do one task' -e 'that one task only' -e 'Stop after the task' -e 'one task of it per call' "$cmd"; check "BCKLG-791 no text is left that stops after one task" $? ""
 has "FR-006 done is [X]" '`[X]`'
 has "FR-006 waiting is [~] with the reason" '`[~] — '
 has "FR-006 cannot is [!] with the reason" '`[!] — '
 has "FR-006 in a run the engine writes the marks" 'the engine writes the marks'
-has "FR-006 in a run the mark is named in the answer" 'name the mark in the answer'
+has "FR-006 in a run the mark is named in the answer" 'name a mark for each task in the answer'
 has "FR-001 no optional hooks in a run: before" '`before_implement`'
 has "FR-001 no optional hooks in a run: after" '`after_implement`'
 has "FR-001 the answer in the engine's schema" 'schema the engine'
@@ -241,13 +251,33 @@ has "FR-002 the spec's files are written in the backlog's working copy" 'are wri
 has "FR-003 by hand the clones are next to the main clone" '--git-common-dir'
 has "FR-003 in a run a missing working copy is the engine's to open" '`[~] — needs the working copy of galax-io/<name>`'
 has "FR-006 a waiting or impossible task holds back only its dependants" 'holds back only the tasks that depend on it'
-has "FR-007 in a run the task is the engine's, never the next open one" 'in a run `taskId`, and without it step 0'
+has "FR-007 in a run the task is the engine's, never the next open one" '`taskId` is read as the first of'
 long="$(LC_ALL=en_US.UTF-8 grep -nE '^.{121,}' "$cmd")"; [ -z "$long" ]; check "no line of the implement text is longer than 120" $? "$long"
 has "FR-001 in a run the checklists do not stop the task" 'do not stop or ask about the checklists'
 has "FR-001 the answer counts the unchecked checklist items" 'unchecked items of each checklist'
 ! grep -qiE 'start (an|another|a new) agent|spawn|subagent' "$cmd"; check "the text starts no agent" $? ""
-for w in '`speckit.implement`' '`workingCopies`' '`<!-- generated: run <runId> -->`' 'one task'; do
+for w in '`speckit.implement`' '`workingCopies`' '`<!-- generated: run <runId> -->`' 'a whole user story' '`speckit.tasks`' '`tasks: [{id, mark, reason?}]`'; do
   grep -qF -- "$w" "$root/presets/spec-across-repositories/README.md"; check "the README says what the implement wrap adds: $w" $? ""
+done
+
+echo "the tasks text (BCKLG-791)"
+cmd="$root/presets/spec-across-repositories/commands/speckit.tasks.md"
+grep -q 'file: "commands/speckit.tasks.md"' "$root/presets/spec-across-repositories/preset.yml"; check "the preset names the tasks text" $? ""
+has "the wrap point is there" '{CORE_TEMPLATE}'
+has "the part before is marked" '## Before you tasks'
+has "the part after is marked" '## After you tasks'
+has "a story is a few coarse tasks" 'A story'"'"'s work is a few coarse tasks'
+has "a story is not split finely" 'Do not split a user story finely'
+has "no task that only commits" 'No task that only commits'
+has "the engine commits" 'the engine'$'\n''  commits'
+has "no separate tests-first and implementation tasks" 'No separate «tests first» and «implementation» tasks for the same change'
+has "a task is test first inside itself" 'A task is test first inside itself'
+long="$(LC_ALL=en_US.UTF-8 grep -nE '^.{121,}' "$cmd")"; [ -z "$long" ]; check "no line of the tasks text is longer than 120" $? "$long"
+! grep -qiE 'start (an|another|a new) agent|spawn|subagent' "$cmd"; check "the text starts no agent" $? ""
+for d in .claude .agents; do
+  f="$root/layers/spec-across-repositories/$d/skills/speckit-tasks/SKILL.md"
+  awk 'index($0,"## Before you tasks")==1{b=NR} index($0,"## After you tasks")==1{a=NR} END{exit !(b && a && b<a)}' "$f"; check "the built $d tasks skill holds the markers" $? ""
+  grep -q 'do every named task in order' "$root/layers/spec-across-repositories/$d/skills/speckit-implement/SKILL.md"; check "the built $d implement skill does a whole story" $? ""
 done
 
 echo

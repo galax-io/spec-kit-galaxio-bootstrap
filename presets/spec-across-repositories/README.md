@@ -1,8 +1,8 @@
 # Preset `spec-across-repositories`
 
-Wraps two Spec Kit commands, `speckit.specify` and `speckit.implement`, so that a feature of the organization
-that spans several repositories gets one specification, written in `galax-io/galaxio-sdlc-backlog`, and its tasks
-are done one at a time, each in its own repository.
+Wraps three Spec Kit commands, `speckit.specify`, `speckit.implement` and `speckit.tasks`, so that a feature of the
+organization that spans several repositories gets one specification, written in `galax-io/galaxio-sdlc-backlog`, and
+its tasks are coarse and done a whole user story per call, each task in its own repository.
 
 ## `speckit.specify`
 
@@ -36,7 +36,7 @@ writes its findings in `checklists/requirements.md`, not in the spec.
 ## `speckit.implement`
 
 The same file `.sdlc/run-input.json` tells it an engine run; its optional fields `task`, `specDirectory`,
-`workingCopies`, `taskId` and `runId` are the run's (`commands/speckit.implement.md` is the full text and wins
+`workingCopies`, `tasks`, `taskId` and `runId` are the run's (`commands/speckit.implement.md` is the full text and wins
 where they differ).
 
 **Before** the base command:
@@ -48,17 +48,26 @@ where they differ).
   `<!-- generated: run <runId> -->`, so that the stage's gate does not judge it.
 - The working copies: `workingCopies` of the run, or by hand the clones next to this repository of the repositories
   the spec affects, found by their `catalog-info.yaml`.
-- The task: the one given (`taskId` in a run), else the next open one by the phases and dependencies of
-  `tasks.md`; its `[repo:<name>]` names the working copy its edit goes into.
+- The tasks: in a run, those the call names (the ids after the spec directory and/or the field `tasks` of the input,
+  all the open tasks of one user story, in order; `taskId` is read as the first of them); by hand every open task by
+  the phases and dependencies of `tasks.md`. A task's `[repo:<name>]` names the working copy its edit goes into.
 
-**After** it: it stops after that one task and gives its mark (`[X]`, `[~] — <what it waits for>` or
-`[!] — <why>`): by hand it writes the mark in `tasks.md`, in a run it names it in the answer and the engine writes
-it, `[X]` once the task's gate accepts it; in a run it does not stop to ask about unchecked checklist items but
-reports them, runs no optional hook of `before_implement` or `after_implement`, and answers in the schema the engine
-gives.
+**After** it: in a run it does a whole user story in one call, not one task: every named task in order, test first for
+each, the tests of what it changes run while it works, and the repository's lint, type check and whole test suite once
+at the end; it does not commit, the engine does. It answers with a mark per task, `tasks: [{id, mark, reason?}]`
+(`[X]`, `[~] — <what it waits for>` or `[!] — <why>`); the engine writes the marks, `[X]` once the story's gate accepts
+it. By hand it does as the base command does: every open task phase by phase, each marked `[X]` in `tasks.md`. In a run
+it does not stop to ask about unchecked checklist items but reports them, runs no optional hook of `before_implement`
+or `after_implement`, and answers in the schema the engine gives.
+
+## `speckit.tasks`
+
+**After** the base command's rules, the tasks it writes are coarse, because a run does a story per call: a story's work
+is a few tasks, not one per file; no task only commits (the engine commits); and no separate «tests first» task and
+«implementation» task for the same change (a task is test first inside itself).
 
 The preset is not installed by `specify preset add` in a repository. `scripts/build-speckit-layer.sh`
-installs it in a scratch project and keeps the four resulting skill files (two commands, Claude Code and Codex) under
+installs it in a scratch project and keeps the six resulting skill files (three commands, Claude Code and Codex) under
 `layers/spec-across-repositories/`; `scripts/adopt.sh --speckit --overlay spec-across-repositories`
 puts them in the backlog. The spec template is not wrapped: a wrapped template needs the preset registry
 and PyYAML to resolve, which the repositories do not have.
