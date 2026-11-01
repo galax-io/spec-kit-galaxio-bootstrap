@@ -144,8 +144,8 @@ scripts/build-speckit-kit.sh --check   # fail when template/ is stale; CI runs t
 ```
 
 A **layer** is the exception for one repository: `presets/spec-across-repositories/` wraps `specify` so
-that one specification covers several repositories, and `implement` so that it does one task of it in the
-task's repository. `scripts/build-speckit-layer.sh <name>` (and `--check`, which CI runs) builds from it, for
+that one specification covers several repositories, `implement` so that, in an engine run, one call does a whole user story in the
+tasks' repositories, and `tasks` so that the tasks stay coarse. `scripts/build-speckit-layer.sh <name>` (and `--check`, which CI runs) builds from it, for
 each command the preset wraps, its two skills under `layers/<name>/` with the kit's frontmatter and model pin
 and the kit's command whole inside, and `scripts/adopt.sh --speckit --overlay <name> <dir>` puts them in a
 repository (the backlog) with `.specify/speckit-overlay.sha256`, which `scripts/check-speckit.sh` accepts for

@@ -12,23 +12,24 @@ metadata:
 ## Before you implement: which spec, which task, which repository?
 
 A feature of this organization has one specification, in `galax-io/galaxio-sdlc-backlog`, and its tasks may change
-several repositories. This command does one task of it per call. Do steps 0 to 4 first, in this session, with no
-other agent for any repository.
+several repositories. In an engine run one call of this command does a whole user story: every task the call names,
+in order. By hand it does every open task of the tasks file, as the base command does. Do steps 0 to 4 first, in this
+session, with no other agent for any repository.
 
-**One session per user story.** In a run the engine calls this command for every task of one user story (the tasks
-of `tasks.md` in one repository with the same `[US<n>]`, or with none) in the same session, one task per call, and
-for the next story in a new one. On a call in a session that already did a task of the story, do not do steps 0 to 3
-again and do not read again the spec, the plan, the contracts or the code you read: take the run input's `taskId` and
-read again only what changed since (the engine's commits, a file the call's note names) or what you no longer have.
-Text after the task's id in the arguments is the engine's note for this call: what it did with your last call's task,
-why the previous attempt failed, the items to answer, the maintainer's instructions. The working copies hold only what
-the engine committed: check with git before you trust what you remember of a change.
+**One session per user story.** In a run the engine calls this command once for one user story (the tasks of
+`tasks.md` in one repository with the same `[US<n>]`, or with none), naming all its open tasks, and for the next story
+in a new session. A later call in a session that already did a story (a retry, or the engine's note on a failed gate)
+does not do steps 0 to 3 again and does not read again the spec, the plan, the contracts or the code you read: read
+again only what changed since (the engine's commits, a file the call's note names) or what you no longer have. Text
+after the task ids in the arguments is the engine's note for this call: why the previous attempt failed, the items to
+answer, the maintainer's instructions. The working copies hold only what the engine committed: check with git before
+you trust what you remember of a change.
 
 0. **The run.** You are in an engine run when the file `.sdlc/run-input.json` exists in the working copy: it is the
    run's input (`runInputVersion` 1), which the engine always writes. Read its fields `task`, `specDirectory`,
-   `workingCopies`, `taskId` and `runId`. In a run nobody answers a question: where a step below needs one of these
-   fields and the file lacks it, do not guess and do not ask; stop and name it in the answer (step 9). Without the
-   file you are working by hand.
+   `workingCopies`, `tasks`, `taskId` and `runId`. In a run nobody answers a question: where a step below needs
+   one of these fields and the file lacks it, do not guess and do not ask; stop and name it in the answer (step 9).
+   Without the file you are working by hand.
 1. **The spec.** The task number is `BCKLG-<N>`, where `<N>` is the number of the feature's issue in
    `galax-io/galaxio-sdlc-backlog`: `task` in a run, else from the arguments (`BCKLG-<N>`, or a directory
    `specs/BCKLG-<N>-…`). By hand, ask for it if you do not have it; never invent one. Find its spec
@@ -55,15 +56,17 @@ the engine committed: check with git before you trust what you remember of a cha
      `затронут` or `неясно`) and use their clones next to this repository's main clone: the directory above
      `$(git rev-parse --path-format=absolute --git-common-dir)`, not the worktree you may be in. Say where you looked
      for a repository with no clone.
-4. **The task.** Do one task: in a run `taskId`, and without it step 0 (an open task may be one done in an earlier
-   turn that the engine has not judged yet); by hand the one the arguments name (`T<NNN>`), else the first open task
-   (`- [ ]`) by the phases and dependencies of `tasks.md`: one whose earlier phases have no open task and whose
-   dependencies are `[X]`. A `[~]` or `[!]` task holds back only the tasks that depend on it. A task names its
-   repository as `[repo:<name>]`, and its edit goes into that repository's working copy; a task without the label
-   is for the spec's only repository. No open task: say so and stop.
+4. **The tasks.** In a run, the tasks to do are those the call names: the ids (`T<NNN>`) in the arguments after the spec
+   directory and/or the field `tasks` of the run input (a list of ids, if present); `taskId` is read as the first of
+   them, so that a run input with only `taskId` still names one task. They are all the open tasks of one user story,
+   in the order named. If the call names none, stop and name it in the answer (step 9). By hand, the tasks are every
+   open task (`- [ ]`) of `tasks.md`, phase by phase, as the base command does, or those the arguments name. A task
+   whose dependencies are not `[X]` waits for them; a `[~]` or `[!]` task holds back only the tasks that depend on it.
+   A task names its repository as `[repo:<name>]`, and its edit goes into that repository's working copy; a task
+   without the label is for the spec's only repository. No open task: say so and stop.
 
-Then implement as below, that one task only. Read steps 5 to 9 first: they change what the steps below say about
-every task, its mark, the checklists and the hooks.
+Then implement as below, every named task in a run, every open task by hand. Read steps 5 to 9 first: they change what
+the steps below say about the tasks, their marks, the checklists and the hooks.
 
 
 ## User Input
@@ -284,23 +287,25 @@ Report final status with summary of completed work.
 - [ ] Completion reported to user with summary of completed work
 
 
-## After you implement: one task, its mark and the answer
+## After you implement: the story, its marks and the answer
 
-5. **Stop after the task.** Do not go on to the next task, even when it is open and in the same phase or story; the
-   next call does it, in a run in this same session.
-6. **The mark.** The task's mark is `[X]` when it is done; `[~] — <what it waits for>` when it waits for an event
+5. **Do the whole story.** In a run, do every named task in order and do not stop after the first one: for each, write
+   the test first and see it fail, then the code, and run the tests of what you change while you work. When the last
+   task is done, run the repository's lint, type check and whole test suite once, and fix what they find. Do not
+   commit: the engine commits. By hand, do every open task phase by phase, as the base command does.
+6. **The marks.** A task's mark is `[X]` when it is done; `[~] — <what it waits for>` when it waits for an event
    outside the run; `[!] — <why, with the evidence>` when the input makes it impossible. A task whose repository has
    no working copy is, in a run, `[~] — needs the working copy of galax-io/<name>`, which the engine opens before it
-   calls again, and by hand `[!]`. In a run the engine writes the marks, `[X]` only once the task's gate has
-   accepted it: do not change `tasks.md`'s marks, and name the mark in the answer. By hand, in `tasks.md`, change
-   only that task's mark, and keep every other line as it is.
+   calls again, and by hand `[!]`. In a run the engine writes the marks, `[X]` only once the story's gate has
+   accepted it: do not change `tasks.md`'s marks, and name a mark for each task in the answer. By hand, write each
+   task's mark in `tasks.md` as it is done, `[X]` for a done one, and keep every other line as it is.
    This step replaces what the steps above say about marking a task `[X]`.
 7. **The checklists.** In a run, do not stop or ask about the checklists of the feature directory: nobody answers a
-   run. Count them as below says, go on with the task, and give the unchecked items of each checklist in the answer.
+   run. Count them as below says, go on with the tasks, and give the unchecked items of each checklist in the answer.
    By hand, ask as below says.
 8. **The hooks.** In a run, do not run or offer the optional hooks of `before_implement` and `after_implement` in
    `.specify/extensions.yml`: the engine commits and reviews the work. By hand they are offered as above.
-9. **The answer.** In a run, answer only in the schema the engine gives in its instruction, and say there the task's
-   id, its mark (step 6), for `[~]` or `[!]` the reason, a field of the input that was missing (step 0), and the
-   unchecked items of each checklist, if any. By hand, report the task, its mark, the files changed in each
-   repository and the next open task.
+9. **The answer.** In a run, answer only in the schema the engine gives in its instruction, and say there a mark per
+   task, `tasks: [{id, mark, reason?}]`, with the reason for `[~]` or `[!]`, a field of the input that was missing
+   (step 0), and the unchecked items of each checklist, if any. By hand, report each task and its mark, the files
+   changed in each repository and the open tasks that are left.

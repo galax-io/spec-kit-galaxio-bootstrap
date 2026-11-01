@@ -3,8 +3,8 @@ schema_version: "1.0"
 preset:
   id: "spec-across-repositories"
   name: "Specification across repositories"
-  version: "0.5.0"
-  description: "Wraps specify so that one specification covers a feature that spans several repositories, and implement so that it does one of its tasks in its repository"
+  version: "0.6.0"
+  description: "Wraps specify so that one specification covers a feature that spans several repositories, and implement so that, in an engine run, one call does a whole user story in its repositories, and tasks so that the tasks stay coarse"
   author: "galax-io"
   license: "MIT"
 
@@ -21,7 +21,12 @@ provides:
     - type: "command"
       name: "speckit.implement"
       file: "commands/speckit.implement.md"
-      description: "Find the task's spec, climb the ladder to its tasks, do one task in its repository's working copy"
+      description: "Find the task's spec, climb the ladder to its tasks, do every task the call names (a whole user story in a run) in its repository's working copy"
+      strategy: "wrap"
+    - type: "command"
+      name: "speckit.tasks"
+      file: "commands/speckit.tasks.md"
+      description: "Write coarse tasks: no task that only commits, no separate tests-first and implementation tasks"
       strategy: "wrap"
 
 tags:
