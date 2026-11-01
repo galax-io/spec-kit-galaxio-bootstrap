@@ -7,7 +7,8 @@
 # adopt.sh: it brings the process into a repository that was not made from the
 # template WITHOUT replacing anything the repository already has — a file that exists
 # is kept byte for byte, the Feature milestones and Labels sections are inserted into an
-# existing AGENTS.md and nothing else of it changes, files that are missing are added,
+# existing AGENTS.md, along with Agents & Models, and nothing else of it changes;
+# missing gate files and tiered agents are added,
 # and running it twice changes nothing.
 
 # shellcheck disable=SC2046
@@ -258,7 +259,12 @@ tpl2="$tmp/tpl2"; mkdir -p "$tpl2/template/scripts" "$tpl2/template/.claude/hook
   mk() { # version label, "labels" when that version has the Labels section — the template at that version
     { printf '# {{ project_name }}\n\n## Feature milestones (ALWAYS)\n\nRule %s.\n\n' "$1"
       [ "${2:-}" != labels ] || printf '## Labels (ALWAYS)\n\nLabels %s.\n\n' "$1"
+      printf '## Agents & Models (ALWAYS)\n\nModels %s.\n\n' "$1"
       printf '## Commits & PRs\n'; } > template/AGENTS.md.jinja
+    mkdir -p template/.claude/agents
+    for agent in deep-researcher infra-worker trivial-worker; do
+      printf 'model: model-%s\neffort: high\n' "$1" > "template/.claude/agents/$agent.md"
+    done
     printf '# {{ project_name }}\n' > template/CLAUDE.md.jinja
     printf 'name: linkage\n# %s\n' "$1" > template/.github/workflows/linkage.yml
     for f in scripts/check-linkage.sh scripts/check-linkage_test.sh .claude/hooks/linkage-guard.sh \
@@ -267,6 +273,11 @@ tpl2="$tmp/tpl2"; mkdir -p "$tpl2/template/scripts" "$tpl2/template/.claude/hook
       printf '#!/usr/bin/env bash\n# %s %s\n' "$f" "$1" > "template/$f"
     done
   }
+  mk zero
+  sed '/^## Agents & Models/,$d' template/AGENTS.md.jinja > without-models
+  mv without-models template/AGENTS.md.jinja
+  rm -rf template/.claude/agents
+  git add -A; git commit -qm zero; git tag v0.0.1
   mk one; git add -A; git commit -qm one; git tag v0.1.0
   mk two labels; git add -A; git commit -qm two; git tag v0.2.0
   mk three labels; git add -A; git commit -qm three
@@ -275,6 +286,42 @@ run2() { # adopt.sh arguments against the template that has history
   : > "$tmp/copier.log"
   out="$(PATH="$bin:$PATH" TEMPLATE_DIR="$tpl2/template" COPIER_LOG="$tmp/copier.log" bash "$script" "$@" 2>&1)"; rc=$?
 }
+
+# Models and agent pins follow the same refresh contract as the gate files.
+new_repo models-missing
+write AGENTS.md $'# Mine\n\nOur text.\n\n## Commits & PRs\n'
+run2 "$repo"
+check "models: normal adoption adds the table before Commits" $(awk '/^## Agents & Models/{m=NR} /^## Commits & PRs/{c=NR} END{exit !(m && c && m < c)}' "$repo/AGENTS.md" && grep -qF 'Our text.' "$repo/AGENTS.md" && echo 0 || echo 1) "out=$out"
+check "models: normal adoption adds all three agent files" $(cmp -s "$repo/.claude/agents/deep-researcher.md" "$tpl2/template/.claude/agents/deep-researcher.md" && cmp -s "$repo/.claude/agents/infra-worker.md" "$tpl2/template/.claude/agents/infra-worker.md" && cmp -s "$repo/.claude/agents/trivial-worker.md" "$tpl2/template/.claude/agents/trivial-worker.md" && echo 0 || echo 1) "out=$out"
+before=$(snapshot)
+run2 "$repo"
+check "models: normal adoption is idempotent" $([ "$(snapshot)" = "$before" ] && echo 0 || echo 1) "out=$out"
+
+new_repo models-before-section
+write AGENTS.md $'# Mine\n\n## Feature milestones (ALWAYS)\n\nRule zero.\n\n## Commits & PRs\n'
+run2 --refresh "$repo"
+check "models: refresh from a release without models adds the table and agents" $(grep -qF 'Models three.' "$repo/AGENTS.md" && [ -f "$repo/.claude/agents/infra-worker.md" ] && has 'inserted: AGENTS.md (Agents & Models)' && echo 0 || echo 1) "out=$out"
+
+new_repo refresh-models
+write AGENTS.md $'# Mine\n\nOur text.\n\n## Agents & Models (ALWAYS)\n\nModels one.\n\n## Commits & PRs\n\n- ours\n'
+write .claude/agents/infra-worker.md $'model: model-one\neffort: high\n'
+before=$(snapshot)
+run2 --refresh --dry-run "$repo"
+check "models: dry-run preserves every file" $([ "$(snapshot)" = "$before" ] && echo 0 || echo 1) "out=$out"
+check "models: dry-run reports the model section and agent update" $(has 'updated: AGENTS.md (Agents & Models was the template of v0.1.0)' && has 'updated: .claude/agents/infra-worker.md (was the template of v0.1.0)' && echo 0 || echo 1) "out=$out"
+run2 --refresh "$repo"
+check "models: refresh updates the old table without losing own text" $(grep -qF 'Models three.' "$repo/AGENTS.md" && ! grep -qF 'Models one.' "$repo/AGENTS.md" && grep -qF 'Our text.' "$repo/AGENTS.md" && grep -qF -- '- ours' "$repo/AGENTS.md" && echo 0 || echo 1) "out=$out"
+check "models: refresh updates the old agent pin" $(cmp -s "$repo/.claude/agents/infra-worker.md" "$tpl2/template/.claude/agents/infra-worker.md" && echo 0 || echo 1) "out=$out"
+before=$(snapshot)
+run2 --refresh "$repo"
+check "models: repeated refresh changes nothing" $([ "$(snapshot)" = "$before" ] && ! has 'updated:' && echo 0 || echo 1) "out=$out"
+
+new_repo refresh-models-local
+write AGENTS.md $'# Mine\n\n## Agents & Models (ALWAYS)\n\nOur own models.\n'
+write .claude/agents/infra-worker.md $'model: our-local-model\neffort: low\n'
+run2 --refresh "$repo"
+check "models: local table is kept and reported" $(grep -qF 'Our own models.' "$repo/AGENTS.md" && has 'Agents & Models differs from every released template' && echo 0 || echo 1) "out=$out"
+check "models: local agent pin is kept and reported" $([ "$(cat "$repo/.claude/agents/infra-worker.md")" = $'model: our-local-model\neffort: low' ] && has 'kept: .claude/agents/infra-worker.md (differs from every released template)' && echo 0 || echo 1) "out=$out"
 gate_at() { # relative path, version label — the content a template of that version put there
   printf '#!/usr/bin/env bash\n# %s %s\n' "$1" "$2"
 }
@@ -337,7 +384,7 @@ check "refresh: an edited Labels section is kept and flagged" $(grep -qF 'Our la
 # R5d. a heading of the repository's own that only starts like the section is not taken for
 #      the section of a release that had none
 new_repo refresh-labels-own
-own_labels=$'# Mine\n\n## Feature milestones (ALWAYS)\n\nRule three.\n\n## Labels we use\n\nOur list.\n\n## Commits & PRs\n'
+own_labels=$'# Mine\n\n## Feature milestones (ALWAYS)\n\nRule three.\n\n## Labels we use\n\nOur list.\n\n## Agents & Models (ALWAYS)\n\nModels three.\n\n## Commits & PRs\n'
 write AGENTS.md "$own_labels"
 run2 --refresh "$repo"
 check "refresh: an own heading is not replaced" $([ "$(cat "$repo/AGENTS.md")" = "${own_labels%$'\n'}" ] && ! has 'updated: AGENTS.md' && echo 0 || echo 1) "out=$out

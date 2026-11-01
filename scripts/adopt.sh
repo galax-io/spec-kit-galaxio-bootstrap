@@ -16,7 +16,8 @@ adopt.sh — bring the Galaxio process into a repository that was not made from 
 It never replaces a file the repository has:
   AGENTS.md   exists: the "Feature milestones (ALWAYS)" section is inserted before
               "## Commits & PRs" (or appended), the "Labels (ALWAYS)" section right
-              after it, and nothing else of the file changes; a section the file
+              after it, and "Agents & Models (ALWAYS)" before "Commits & PRs".
+              Nothing else of the file changes; a section the file
               already has is left alone.
               missing, but CLAUDE.md holds the project's own guidance (more than a
               pointer to AGENTS.md): the sections go into CLAUDE.md instead, so the
@@ -32,12 +33,14 @@ It never replaces a file the repository has:
               "differs from the template" so the difference can be reviewed.
               A test is not added next to a script that differs from the template:
               a test belongs to its script.
+  agents      .claude/agents/{deep-researcher,infra-worker,trivial-worker}.md:
+              each is added when missing; existing files follow the same refresh rule.
 It never creates .copier-answers.yml: a later `copier update` would take the
 differences for local edits.
 
 --refresh   also bring what an earlier run of this script put there up to the current
-              template: a gate file, or one of the two sections, that equals the
-              template of some released tag is replaced by the current one ("updated:");
+              template: a gate file, a tiered agent file, or one of the three sections,
+              that equals the template of some released tag is replaced by the current one ("updated:");
               one that equals no release is a local variant and is kept ("kept:").
               Needs the template's git history (a checkout of the bootstrap repository).
 
@@ -244,6 +247,7 @@ fi
 # The sections the process adds to a project's instructions.
 FEATURES="Feature milestones (ALWAYS)"
 LABELS="Labels (ALWAYS)"
+MODELS="Agents & Models (ALWAYS)"
 
 section_of() { # heading; file on stdin — the section: its heading down to the next "## " heading, no trailing blank lines
   awk -v h="## $1" '
@@ -350,6 +354,9 @@ if [ -n "$instr" ]; then
   # Feature milestones goes before "## Commits & PRs"; Labels right after Feature milestones.
   sync_section "$FEATURES" "$(awk '/^## Commits & PRs/ { print NR; exit }' "$TARGET/$instr")"
   sync_section "$LABELS" "$(awk 'on && /^## / { print NR; exit } /^## Feature milestones/ { on = 1 }' "$TARGET/$instr")"
+  if [ -n "$(section_of "$MODELS" < "$TEMPLATE_DIR/AGENTS.md.jinja")" ]; then
+    sync_section "$MODELS" "$(awk '/^## Commits & PRs/ { print NR; exit }' "$TARGET/$instr")"
+  fi
 else
   render
   put AGENTS.md "$rendered/AGENTS.md"
@@ -363,11 +370,16 @@ else
   put CLAUDE.md "$rendered/CLAUDE.md"
 fi
 
-# The gate: each file is added when missing and otherwise only compared.
-for f in scripts/check-linkage.sh scripts/check-linkage_test.sh \
+# The gate and tiered agents: missing files are added; local variants are kept.
+files=(scripts/check-linkage.sh scripts/check-linkage_test.sh \
          .claude/hooks/linkage-guard.sh .claude/hooks/linkage-guard_test.sh \
          .githooks/pre-push .githooks/pre-push_test.sh \
-         .githooks/post-checkout .githooks/post-checkout_test.sh; do
+         .githooks/post-checkout .githooks/post-checkout_test.sh)
+for agent in deep-researcher infra-worker trivial-worker; do
+  f=".claude/agents/$agent.md"
+  [ ! -f "$TEMPLATE_DIR/$f" ] || files+=("$f")
+done
+for f in "${files[@]}"; do
   # A test belongs to its script: next to a script that differs from the template, the
   # template's test would assert behaviour the script lacks.
   script="${f%_test.sh}.sh"
