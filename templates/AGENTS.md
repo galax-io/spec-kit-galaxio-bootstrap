@@ -115,6 +115,8 @@ Route work by the reasoning it needs, not by habit; parallelize only where agent
 
 Trunk-based with release branches. Trunk is `main`; `release/*` branches are cut from `main` for stabilization. Pushing a `vX.Y.Z` tag on `main` or a `release/*` branch triggers the release workflow ({{PUBLISH_MECHANISM}}) and creates a GitHub Release ({{RELEASE_NOTES_TOOL}}).
 
+Work goes in the theme milestone. When the theme's work in this repository is done, choose the next version by what it contains, tag it as below, write the line `Released: vX.Y.Z` in the milestone's description and close the milestone.
+
 ### Minor/Major release (e.g. 1.2.0, 2.0.0)
 
 1. `git checkout -b release/X.Y.0 main` — cut release branch from `main`
@@ -136,7 +138,7 @@ Trunk-based with release branches. Trunk is `main`; `release/*` branches are cut
 - **Branch name must match tag version**: `release/1.2.0` → `v1.2.0`, `v1.2.1`, etc.
 - **Never delete a release tag** after the registry deployment starts — creates stuck deployments
 - **Never reuse a version number** — most package registries reject duplicates permanently
-- **Before tagging**: every PR merged since the previous tag must be assigned to the milestone; every issue in the milestone whose fix is on `main` must be closed
+- **Before tagging**: every PR merged since the previous tag must be assigned to a milestone; every issue in the theme's milestone whose fix is on `main` must be closed
 
 <!-- The issue↔PR↔milestone contract above is enforced mechanically by         -->
 <!-- scripts/check-linkage.sh + the .claude/hooks/linkage-guard.sh PreToolUse   -->
