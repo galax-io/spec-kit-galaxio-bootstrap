@@ -15,8 +15,9 @@ model: sonnet
 
 ## Before you tasks: how coarse are the tasks?
 
-In an engine run one call of `speckit-implement` does a whole user story, test first for each task it names, and the
-engine commits. So the tasks you write are the units of that work, not its steps. Read the rules below first: they
+In a legacy engine run one call of `speckit-implement` does a whole user story; under `final-review-v1` it does a phase.
+In both, phase work stays coarse, test first within each task, and the engine commits. So the tasks you write are the
+units of that work, not its steps. Read the rules below first: they
 change what the base command says of the phases, of the tests and of the size of a task.
 
 
