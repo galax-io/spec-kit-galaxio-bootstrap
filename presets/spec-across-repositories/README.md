@@ -2,7 +2,7 @@
 
 Wraps three Spec Kit commands, `speckit.specify`, `speckit.implement` and `speckit.tasks`, so that a feature of the
 organization that spans several repositories gets one specification, written in `galax-io/galaxio-sdlc-backlog`, and
-its tasks are coarse and done a whole user story per call, each task in its own repository.
+its tasks are coarse and each task is done in its own repository.
 
 ## `speckit.specify`
 
@@ -36,8 +36,13 @@ writes its findings in `checklists/requirements.md`, not in the spec.
 ## `speckit.implement`
 
 The same file `.sdlc/run-input.json` tells it an engine run; its optional fields `task`, `specDirectory`,
-`workingCopies`, `tasks`, `taskId` and `runId` are the run's (`commands/speckit.implement.md` is the full text and wins
+`workingCopies`, `tasks`, `taskId`, `runId` and `implementPolicy` are the run's (`commands/speckit.implement.md` is the full text and wins
 where they differ).
+
+The optional `implementPolicy` is `{version: 1, name: "final-review-v1", workflowRevision: <string>}`. Its absence
+means legacy; the policy is never inferred from a branch. Final-review calls implement one whole phase per call in the
+same session, with only necessary automatic checkpoints and no intermediate agent gates. Final review follows the last
+phase. The legacy run still uses one session and call per story; manual operation is unchanged.
 
 **Before** the base command:
 
@@ -49,20 +54,19 @@ where they differ).
 - The working copies: `workingCopies` of the run, or by hand the clones next to this repository of the repositories
   the spec affects, found by their `catalog-info.yaml`.
 - The tasks: in a run, those the call names (the ids after the spec directory and/or the field `tasks` of the input,
-  all the open tasks of one user story, in order; `taskId` is read as the first of them); by hand every open task by
+  all named phase tasks for final review or all open tasks of one legacy story, in order; `taskId` is read as the first of them); by hand every open task by
   the phases and dependencies of `tasks.md`. A task's `[repo:<name>]` names the working copy its edit goes into.
 
-**After** it: in a run it does a whole user story in one call, not one task: every named task in order, test first for
+**After** it: in a legacy run it does a whole user story in one call; final review does a whole phase: every named task in order, test first for
 each, the tests of what it changes run while it works, and the repository's lint, type check and whole test suite once
 at the end; it does not commit, the engine does. It answers with a mark per task, `tasks: [{id, mark, reason?}]`
-(`[X]`, `[~] — <what it waits for>` or `[!] — <why>`); the engine writes the marks, `[X]` once the story's gate accepts
-it. By hand it does as the base command does: every open task phase by phase, each marked `[X]` in `tasks.md`. In a run
+(`[X]`, `[~] — <what it waits for>` or `[!] — <why>`); the engine writes the marks, `[X]` when the engine accepts the work under its policy. By hand it does as the base command does: every open task phase by phase, each marked `[X]` in `tasks.md`. In a run
 it does not stop to ask about unchecked checklist items but reports them, runs no optional hook of `before_implement`
 or `after_implement`, and answers in the schema the engine gives.
 
 ## `speckit.tasks`
 
-**After** the base command's rules, the tasks it writes are coarse, because a run does a story per call: a story's work
+**After** the base command's rules, the tasks it writes are coarse, for both the legacy story call and the final-review phase call: a story's work
 is a few tasks, not one per file; no task only commits (the engine commits); and no separate «tests first» task and
 «implementation» task for the same change (a task is test first inside itself).
 

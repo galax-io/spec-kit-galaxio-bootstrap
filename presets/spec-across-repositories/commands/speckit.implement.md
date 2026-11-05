@@ -1,22 +1,29 @@
 ## Before you implement: which spec, which task, which repository?
 
 A feature of this organization has one specification, in `galax-io/galaxio-sdlc-backlog`, and its tasks may change
-several repositories. In an engine run one call of this command does a whole user story: every task the call names,
-in order. By hand it does every open task of the tasks file, as the base command does. Do steps 0 to 4 first, in this
-session, with no other agent for any repository.
+several repositories. In a legacy engine run one call of this command does a whole user story: every task the call
+names, in order. Under `final-review-v1` it does one whole phase per call, with all phases in the same session.
+By hand it does
+every open task of the tasks file, as the base command does. Do steps 0 to 4 first, in this session, with no other agent
+for any repository.
 
-**One session per user story.** In a run the engine calls this command once for one user story (the tasks of
+**Sessions.** In a legacy run the engine calls this command once for one user story (the tasks of
 `tasks.md` in one repository with the same `[US<n>]`, or with none), naming all its open tasks, and for the next story
 in a new session. A later call in a session that already did a story (a retry, or the engine's note on a failed gate)
 does not do steps 0 to 3 again and does not read again the spec, the plan, the contracts or the code you read: read
 again only what changed since (the engine's commits, a file the call's note names) or what you no longer have. Text
 after the task ids in the arguments is the engine's note for this call: why the previous attempt failed, the items to
-answer, the maintainer's instructions. The working copies hold only what the engine committed: check with git before
+answer, the maintainer's instructions. For `final-review-v1`, use the same session for all phase calls and read only
+changes or missing context on later calls. The working copies hold only what the engine committed: check with git before
 you trust what you remember of a change.
 
 0. **The run.** You are in an engine run when the file `.sdlc/run-input.json` exists in the working copy: it is the
    run's input (`runInputVersion` 1), which the engine always writes. Read its fields `task`, `specDirectory`,
-   `workingCopies`, `tasks`, `taskId` and `runId`. In a run nobody answers a question: where a step below needs
+   `workingCopies`, `tasks`, `taskId`, `runId` and optional `implementPolicy`.
+   The absence of `implementPolicy` means legacy;
+   `{version: 1, name: "final-review-v1", workflowRevision: <string>}` selects final review;
+   never infer the policy from a branch name.
+   In a run nobody answers a question: where a step below needs
    one of these fields and the file lacks it, do not guess and do not ask; stop and name it in the answer (step 9).
    Without the file you are working by hand.
 1. **The spec.** The task number is `BCKLG-<N>`, where `<N>` is the number of the feature's issue in
@@ -47,8 +54,9 @@ you trust what you remember of a change.
      for a repository with no clone.
 4. **The tasks.** In a run, the tasks to do are those the call names: the ids (`T<NNN>`) in the arguments after the spec
    directory and/or the field `tasks` of the run input (a list of ids, if present); `taskId` is read as the first of
-   them, so that a run input with only `taskId` still names one task. They are all the open tasks of one user story,
-   in the order named. If the call names none, stop and name it in the answer (step 9). By hand, the tasks are every
+   them, so that a run input with only `taskId` still names one task. For legacy they are all the open tasks of one
+   user story; for `final-review-v1` they are the named tasks of the phase, in the order named. If the call names none,
+   stop and name it in the answer (step 9). By hand, the tasks are every
    open task (`- [ ]`) of `tasks.md`, phase by phase, as the base command does, or those the arguments name. A task
    whose dependencies are not `[X]` waits for them; a `[~]` or `[!]` task holds back only the tasks that depend on it.
    A task names its repository as `[repo:<name>]`, and its edit goes into that repository's working copy; a task
@@ -61,15 +69,19 @@ the steps below say about the tasks, their marks, the checklists and the hooks.
 
 ## After you implement: the story, its marks and the answer
 
-5. **Do the whole story.** In a run, do every named task in order and do not stop after the first one: for each, write
-   the test first and see it fail, then the code, and run the tests of what you change while you work. When the last
-   task is done, run the repository's lint, type check and whole test suite once, and fix what they find. Do not
-   commit: the engine commits. By hand, do every open task phase by phase, as the base command does.
+5. **Do the whole call.** In a run, do every named task in order and do not stop after the first one: for each, write
+   the test first and see it fail, then the code, and run the tests of what you change while you work.
+   For legacy, when the last task is done,
+   run the repository's lint, type check and whole test suite once, and fix what they find. Under `final-review-v1`,
+   run necessary automatic checks for the phase; run the full required suite after the last phase. Do not
+   commit: the engine commits. The engine runs no intermediate agent gates; final review follows the last phase.
+   By hand, do every open task
+   phase by phase, as the base command does.
 6. **The marks.** A task's mark is `[X]` when it is done; `[~] — <what it waits for>` when it waits for an event
    outside the run; `[!] — <why, with the evidence>` when the input makes it impossible. A task whose repository has
    no working copy is, in a run, `[~] — needs the working copy of galax-io/<name>`, which the engine opens before it
-   calls again, and by hand `[!]`. In a run the engine writes the marks, `[X]` only once the story's gate has
-   accepted it: do not change `tasks.md`'s marks, and name a mark for each task in the answer. By hand, write each
+   calls again, and by hand `[!]`. In a run the engine writes the marks, `[X]` only when the engine accepts the work
+   under its policy: do not change `tasks.md`'s marks, and name a mark for each task in the answer. By hand, write each
    task's mark in `tasks.md` as it is done, `[X]` for a done one, and keep every other line as it is.
    This step replaces what the steps above say about marking a task `[X]`.
 7. **The checklists.** In a run, do not stop or ask about the checklists of the feature directory: nobody answers a
