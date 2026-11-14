@@ -309,7 +309,7 @@ fi
 FOUND_BY=""
 if [ -n "$FOR_TAG" ]; then
   v="${FOR_TAG#v}"; minor="${v%.*}.0"; minor_tag="${FOR_TAG%%[0-9]*}$minor"
-  all=$(gh api "repos/$REPO/milestones?state=all&per_page=100")
+  all=$(gh api --paginate --slurp "repos/$REPO/milestones?state=all&per_page=100" | jq 'add // []')   # every page: closed themes pile up
   named=$(jq -r --arg v "$v" '.[]
             | select(any((.description // "") | gsub("\r"; "") | split("\n")[]
                 | select(test("^[ \t]*[Rr]eleased:")) | sub("^[ \t]*[Rr]eleased:"; "") | split(",")[]
