@@ -68,16 +68,19 @@ case "$cmd" in
     case "$path" in
       "repos/$REPO/milestones?state=open&per_page=100")
         echo '[{"number":8,"title":"v0.8.0"}]' | jq -r "${expr:-.}" ;;
-      "repos/$REPO/milestones?state=all&per_page=100")   # milestones.json when a case sets its own
-        if [ -f "$fx/milestones.json" ]; then cat "$fx/milestones.json"
-        else echo '[{"number":7,"title":"v0.7.0"},{"number":8,"title":"v0.8.0"}]'; fi ;;
+      "repos/$REPO/milestones?state=all&per_page=100")   # milestones.json (and milestones-2.json, page 2) when a case sets its own
+        if [ -f "$fx/milestones-2.json" ]; then pages=$(jq -sc . "$fx/milestones.json" "$fx/milestones-2.json")
+        elif [ -f "$fx/milestones.json" ]; then pages=$(jq -sc . "$fx/milestones.json")
+        else pages='[[{"number":7,"title":"v0.7.0"},{"number":8,"title":"v0.8.0"}]]'; fi
+        if [ "$paginate" = 1 ]; then echo "$pages"     # --paginate --slurp: an array of every page
+        else jq -c '.[0]' <<<"$pages"; fi ;;           # one call: the first page only
       "repos/$REPO")
         echo '{"default_branch":"main"}' | jq -r "${expr:-.}" ;;
       "repos/$BACKLOG_REPO")
         backlog_denied && not_found
         echo '{"private":true}' ;;
       "repos/$REPO/milestones/"[0-9]*)
-        if [ -f "$fx/milestones.json" ]; then jq -c --argjson n "${path##*/}" '.[] | select(.number == $n) | {title, state: (.state // "open")}' "$fx/milestones.json"
+        if [ -f "$fx/milestones.json" ]; then jq -sc --argjson n "${path##*/}" 'add | .[] | select(.number == $n) | {title, state: (.state // "open")}' "$fx"/milestones*.json
         else echo '{"title":"v0.8.0","state":"open"}'; fi ;;
       "repos/$REPO/issues?milestone="[0-9]*"&state=all&per_page=100")
         [ "$paginate" = 1 ] || unexpected "$all"
@@ -345,6 +348,16 @@ released_in 12 'Released: v0.8.1'
 released_in 13 ''
 run --for-tag v0.9.1
 check "FR-005: a tag no milestone names, and no milestone of its version, is an error that says what to do" $([ "$rc" -eq 2 ] && has 'no milestone says "Released: v0.9.1" in its description' && has "no milestone 'v0.9.1' or 'v0.9.0…'" && has 'write "Released: v0.9.1" in the description of the theme milestone this tag ships, before the tag' && echo 0 || echo 1) "rc=$rc out=$out"
+
+# GitHub lists 100 milestones a page and closed theme milestones only accumulate: the one that names the tag
+# may be on page 2, while v0.8.0 (#8, an open issue) is on page 1
+new_case tag-released-page-two
+milestones_are '8:v0.8.0'
+printf '[{"number":12,"title":"%s","description":"Released: v0.8.1"}]\n' "$THEME" > "$fx/milestones-2.json"
+printf '{"number":1,"state":"open"}\n' > "$fx/items-8.ndjson"
+add_pr 2 MERGED ""
+run --for-tag v0.8.1
+check "FR-001: the milestone that names the tag on the second page of milestones is the one checked" $([ "$rc" -eq 0 ] && has "Milestone: #12  $THEME" && only_known_calls && echo 0 || echo 1) "rc=$rc out=$out $(cat "$fx/unexpected.log" 2>&1)"
 
 # --tag and the audit check the milestone they are given, whatever a Released: line says
 new_case tag-given
@@ -778,17 +791,24 @@ check "specs: a file without the line" $(has '✗ specs/BCKLG-334-gate-review-co
 check "specs: a directory without spec.md" $(has '✗ specs/BCKLG-9-draft has no spec.md' && echo 0 || echo 1) "out=$out"
 check "specs: a task two specs carry" $(has '✗ BCKLG-62 is carried by 2 specs: specs/BCKLG-334-gate-review-cost specs/BCKLG-62-again — a task may have one' && echo 0 || echo 1) "out=$out"
 
-# 41. in spec-kit-galaxio-bootstrap, the repository with copier.yml, the template ships this script and this
-#     suite byte for byte (its constitution, Principle V), and its Release Process says to write the
-#     Released: line this script reads before the tag. A copy in a stamped repository has no copier.yml
-#     above it and skips this.
-if [ -f "$here/../copier.yml" ]; then
+# 41. in spec-kit-galaxio-bootstrap, the one repository whose scripts/ hold build-speckit-kit.sh (the template
+#     ships neither it nor adopt.sh), the template ships this script and this suite byte for byte (its
+#     constitution, Principle V), and its Release Process says to write the Released: line this script reads
+#     before the tag. A copy anywhere else, a Copier template of its own included, skips this.
+in_order() { # line, phrase... — succeeds when the line holds every phrase, each after the one before it
+  local rest="$1" p; shift
+  for p in "$@"; do
+    case "$rest" in *"$p"*) rest="${rest#*"$p"}" ;; *) return 1 ;; esac
+  done
+}
+if [ -f "$here/build-speckit-kit.sh" ]; then
   for f in check-linkage.sh check-linkage_test.sh; do
     check "FR-009: template/scripts/$f is scripts/$f byte for byte" $(cmp -s "$here/$f" "$here/../template/scripts/$f" && echo 0 || echo 1) "cmp scripts/$f template/scripts/$f"
   done
   for f in AGENTS.md template/AGENTS.md.jinja templates/AGENTS.md; do
     line=$(sed -n '/^## Release Process/,/^### /p' "$here/../$f" | grep -F 'Released: vX.Y.Z')
-    check "FR-008: the Release Process of $f writes Released: vX.Y.Z before the tag and names the check that reads it" $(awk '{ r = index($0, "Released: vX.Y.Z"); t = index($0, "tag it") } END { exit !(NR == 1 && r && t && r < t) }' <<<"$line" && grep -qF 'check-linkage.sh --for-tag' <<<"$line" && echo 0 || echo 1) "$f: $line"
+    # the order of a release: the line, the tag, the release, the milestone closed; then the check that reads the line
+    check "FR-008: the Release Process of $f writes Released: vX.Y.Z before the tag and names the check that reads it" $([ "$(wc -l <<<"$line")" -eq 1 ] && in_order "$line" 'Released: vX.Y.Z' 'tag it' 'the release is out' 'close the milestone' 'check-linkage.sh --for-tag' 'finds by it the milestone' && echo 0 || echo 1) "$f: $line"
   done
 fi
 
