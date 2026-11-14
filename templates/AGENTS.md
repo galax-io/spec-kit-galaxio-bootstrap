@@ -115,7 +115,7 @@ Route work by the reasoning it needs, not by habit; parallelize only where agent
 
 Trunk-based with release branches. Trunk is `main`; `release/*` branches are cut from `main` for stabilization. Pushing a `vX.Y.Z` tag on `main` or a `release/*` branch triggers the release workflow ({{PUBLISH_MECHANISM}}) and creates a GitHub Release ({{RELEASE_NOTES_TOOL}}).
 
-Work goes in the theme milestone. When the theme's work in this repository is done, choose the next version by what it contains, tag it as below, write the line `Released: vX.Y.Z` in the milestone's description and close the milestone.
+Work goes in the theme milestone. When the theme's work in this repository is done, choose the next version by what it contains, write the line `Released: vX.Y.Z` in the theme milestone's description, then tag it as below, and close the milestone once the release is out. The line comes before the tag: the check before a tag (`scripts/check-linkage.sh --for-tag`, run by the pre-push hook and the release workflow) finds by it the milestone the tag ships, and refuses the tag while that milestone holds an open PR or issue.
 
 ### Minor/Major release (e.g. 1.2.0, 2.0.0)
 

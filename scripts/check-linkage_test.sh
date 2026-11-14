@@ -191,7 +191,6 @@ run --tag
 check "tag: an open technical PR blocks the tag" $([ "$rc" -eq 1 ] && echo 0 || echo 1) "rc=$rc out=$out"
 check "tag: it says to merge or close the PR" $(has 'PR #3 is OPEN — merge or close it before tagging' && echo 0 || echo 1) "out=$out"
 check "tag: it is the only error" $(has 'FAIL: 1 error(s)' && echo 0 || echo 1) "out=$out"
-check "FR-007: --tag checks the milestone it is given, with no Found by: line of --for-tag" $(has 'Milestone: #8  v0.8.0' && ! has 'Found by:' && echo 0 || echo 1) "out=$out"
 
 # 4. tag (through --for-tag, a patch of v0.8.0): technical PRs merged or closed
 new_case tag-technical
@@ -253,7 +252,8 @@ check "FR-007: --for-tag still takes only vX.Y.Z" $([ "$rc" -eq 2 ] && has 'erro
 
 new_case help
 run --help
-check "FR-007: --help says --for-tag looks first for the milestone whose description says Released: with the tag" $([ "$rc" -eq 0 ] && grep -A4 -- '--for-tag vX.Y.Z' <<<"$out" | grep -qF 'Released:' && echo 0 || echo 1) "rc=$rc out=$out"
+for_tag_help=$(sed -n '/--for-tag vX\.Y\.Z/,/check-linkage\.sh \[milestone\]/p' <<<"$out")   # the lines of --for-tag
+check "FR-007: --help says --for-tag looks first for the milestone whose description says Released: with the tag" $([ "$rc" -eq 0 ] && awk '/Released: vX\.Y\.Z/ && !r { r = NR } /vX\.Y\.0/ && !m { m = NR } END { exit !(r && m && r < m) }' <<<"$for_tag_help" && echo 0 || echo 1) "rc=$rc help=$for_tag_help"
 
 # 4c. for-tag (backlog#387): the tag is checked against the theme milestone whose description names it on a
 #     line "Released: vX.Y.Z[, vX.Y.Z]", ahead of any milestone titled by a version. v0.8.0 (#8) still holds
@@ -274,6 +274,8 @@ check "FR-003: the output names the theme milestone it checked" $(has "Milestone
 check "FR-003: the line under it says it was found by the Released: line" $([ "$(grep -A1 '^Milestone:' <<<"$out" | sed -n 2p)" = 'Found by:  "Released: v0.8.1" in its description' ] && echo 0 || echo 1) "out=$out"
 run --for-tag 0.8.1
 check "FR-001: a tag without v finds \"Released: v0.8.1\"" $([ "$rc" -eq 0 ] && has "Milestone: #12  $THEME" && echo 0 || echo 1) "rc=$rc out=$out"
+run --for-tag v0.8.0
+check "FR-001: the first tag of a Released: list is named by it too, ahead of the milestone titled v0.8.0" $([ "$rc" -eq 0 ] && has "Milestone: #12  $THEME" && has 'Found by:  "Released: v0.8.0" in its description' && echo 0 || echo 1) "rc=$rc out=$out"
 
 theme_case tag-released-open-pr
 add_pr 2 OPEN ""
@@ -286,6 +288,13 @@ add_pr 2 MERGED ""
 add_issue 3 open
 run --for-tag v0.8.1
 check "FR-002: an open issue in the theme milestone refuses the tag" $([ "$rc" -eq 1 ] && has "Milestone: #12  $THEME" && has 'issue #3 is open — must be closed before tagging' && echo 0 || echo 1) "rc=$rc out=$out"
+
+theme_case tag-released-closed-linked
+add_issue 3 closed
+issue_in "$REPO" 3 "$THEME"
+add_pr 2 CLOSED "$REPO#3"
+run --for-tag v0.8.1
+check "FR-002: a closed, unmerged PR that links an issue of the theme milestone refuses the tag" $([ "$rc" -eq 1 ] && has "Milestone: #12  $THEME" && has 'PR #2 is CLOSED — must be MERGED before tagging' && has 'FAIL: 1 error(s)' && echo 0 || echo 1) "rc=$rc out=$out"
 
 theme_case tag-released-closed
 ms_set 12 state closed
@@ -303,7 +312,7 @@ check "FR-001: the milestone that names the tag in Released: wins over the one t
 
 new_case tag-released-exact
 milestones_are '8:v0.8.0' "12:$THEME" '13:M1.0.3 — next' '14:M1.0.4 — notes'
-released_in 12 $'Theme of the run.\r\n  released:  0.8.1 \r\nDue: autumn'
+released_in 12 $'Theme of the run.\r\n  released:  0.7.9,0.8.1 , v0.9.0 \r\nDue: autumn'   # the tag in the middle of the list
 released_in 13 'Released: v0.8.10, v0.8.1-rc'
 released_in 14 'Notes: Released: v0.8.1'
 printf '{"number":1,"state":"open"}\n' > "$fx/items-8.ndjson"
@@ -336,6 +345,16 @@ released_in 12 'Released: v0.8.1'
 released_in 13 ''
 run --for-tag v0.9.1
 check "FR-005: a tag no milestone names, and no milestone of its version, is an error that says what to do" $([ "$rc" -eq 2 ] && has 'no milestone says "Released: v0.9.1" in its description' && has "no milestone 'v0.9.1' or 'v0.9.0…'" && has 'write "Released: v0.9.1" in the description of the theme milestone this tag ships, before the tag' && echo 0 || echo 1) "rc=$rc out=$out"
+
+# --tag and the audit check the milestone they are given, whatever a Released: line says
+new_case tag-given
+milestones_are '8:v0.8.0' "12:$THEME"
+released_in 12 'Released: v0.8.0'
+add_pr 2 MERGED ""
+run --tag 8
+check "FR-007: --tag checks the milestone it is given, with no Found by: line of --for-tag" $([ "$rc" -eq 0 ] && has 'Milestone: #8  v0.8.0' && has 'Mode:      tag-readiness' && ! has 'Found by:' && echo 0 || echo 1) "rc=$rc out=$out"
+run 8
+check "FR-007: an audit checks the milestone it is given, with no Found by: line either" $([ "$rc" -eq 0 ] && has 'Milestone: #8  v0.8.0' && ! has 'Mode:' && ! has 'Found by:' && echo 0 || echo 1) "rc=$rc out=$out"
 
 # 5. tag: a PR that links an issue must be merged, not just closed
 new_case tag-closed-linked
@@ -759,11 +778,17 @@ check "specs: a file without the line" $(has '✗ specs/BCKLG-334-gate-review-co
 check "specs: a directory without spec.md" $(has '✗ specs/BCKLG-9-draft has no spec.md' && echo 0 || echo 1) "out=$out"
 check "specs: a task two specs carry" $(has '✗ BCKLG-62 is carried by 2 specs: specs/BCKLG-334-gate-review-cost specs/BCKLG-62-again — a task may have one' && echo 0 || echo 1) "out=$out"
 
-# 41. in spec-kit-galaxio-bootstrap the template ships this script and this suite byte for byte (its
-#     constitution, Principle V); a copy anywhere else has no template/scripts/ beside it and skips this
-if [ -f "$here/../template/scripts/check-linkage.sh" ]; then
+# 41. in spec-kit-galaxio-bootstrap, the repository with copier.yml, the template ships this script and this
+#     suite byte for byte (its constitution, Principle V), and its Release Process says to write the
+#     Released: line this script reads before the tag. A copy in a stamped repository has no copier.yml
+#     above it and skips this.
+if [ -f "$here/../copier.yml" ]; then
   for f in check-linkage.sh check-linkage_test.sh; do
     check "FR-009: template/scripts/$f is scripts/$f byte for byte" $(cmp -s "$here/$f" "$here/../template/scripts/$f" && echo 0 || echo 1) "cmp scripts/$f template/scripts/$f"
+  done
+  for f in AGENTS.md template/AGENTS.md.jinja templates/AGENTS.md; do
+    line=$(sed -n '/^## Release Process/,/^### /p' "$here/../$f" | grep -F 'Released: vX.Y.Z')
+    check "FR-008: the Release Process of $f writes Released: vX.Y.Z before the tag and names the check that reads it" $(awk '{ r = index($0, "Released: vX.Y.Z"); t = index($0, "tag it") } END { exit !(NR == 1 && r && t && r < t) }' <<<"$line" && grep -qF 'check-linkage.sh --for-tag' <<<"$line" && echo 0 || echo 1) "$f: $line"
   done
 fi
 
