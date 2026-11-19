@@ -101,11 +101,15 @@ commands:
   help: Command cheat-sheet body (goes inside a ```bash block)
   default: |-
     {% if stack == 'scala-sbt' -%}
+    # install     sbt update Test/compile scalafmtCheckAll scalafmtSbtCheck
+    # test        sbt test
     # format      sbt scalafmtAll
     # verify      sbt scalafmtCheckAll compile test
     # build/test  sbt compile test
     # integration sbt it:test
     {%- elif stack == 'jvm-gradle' -%}
+    # install     ./gradlew dependencies testClasses
+    # test        ./gradlew test
     # format      ./gradlew spotlessApply
     # verify      ./gradlew check
     # build/test  ./gradlew build
@@ -116,16 +120,20 @@ commands:
     # build/test  npm ci && npm test
     # integration npm run test:integration
     {%- elif stack == 'python' -%}
+    # TODO install / test  (the dependency manager is not fixed: install without running tests, then pytest)
     # format      ruff format
     # verify      ruff check && pytest
     # build/test  pytest
     # integration pytest -m integration
     {%- elif stack == 'go' -%}
+    # install     go mod download
+    # test        go test ./...
     # format      gofmt -w .
     # verify      go vet ./... && go test ./...
     # build/test  go build ./... && go test ./...
     # integration go test -tags=integration ./...
     {%- else -%}
+    # TODO install / test commands
     # TODO format / verify / build-test / integration commands
     {%- endif %}
 
