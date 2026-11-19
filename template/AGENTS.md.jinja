@@ -43,7 +43,7 @@
 
 ## Boundaries
 
-**Always:** format before commit, branch from `main`, keep commits semantic and green, preserve backward compat for published public APIs and any downstream consumers. `{{ dep_manifest }}` = dependency truth, `.github/workflows/` = CI/release truth.
+**Always:** format before commit, branch from `main`, keep commits semantic and green, run Python only through `uv`/`uvx` (`uv run --no-project python -I script.py` for a script, `uvx tool@version` for a tool from PyPI; in CI `astral-sh/setup-uv`, pinned by commit and with `version:`), never bare `python3`, `pip` or a hand-made venv, preserve backward compat for published public APIs and any downstream consumers. `{{ dep_manifest }}` = dependency truth, `.github/workflows/` = CI/release truth.
 
 **Ask first:** new deps or upgrades, changing public API signatures / observable behavior / serialized formats, editing another repo, release/publish workflow changes.
 
