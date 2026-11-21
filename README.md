@@ -112,18 +112,20 @@ specs/
 
 Work is routed by the reasoning it needs (see `AGENTS.md` → Agents & Models),
 always on the newest model of each class: deep work (complex code, reviews,
-research, specs, plans) runs on `claude-opus-5-5` / Codex `gpt-6.1-sol` at
-xhigh effort; light work (task generation, mechanical infra) on
-`claude-sonnet-5-5` / Codex `gpt-6.1-terra` at high effort; trivial work
-(simple edits, context, bookkeeping) on `claude-haiku-5-5` / Codex
-`gpt-6-luna` at high effort.
+research, specs, plans) runs on `claude-opus-5-5` / Codex `gpt-6.2-sol` /
+Google `gemini-4-neon` at xhigh effort; light work (task generation, mechanical
+infra) on `claude-sonnet-5-5` / Codex `gpt-6.1-terra` / Google
+`gemini-4-hydrogen` at high effort; trivial work (simple edits, context,
+bookkeeping) on `claude-haiku-5-5` / Codex `gpt-6-luna` at high effort or
+Google `gemini-4-hydrogen` at low effort.
 
-Exceptional models are opt-in because of token cost: `claude-fable-5-1` at
-medium effort on Claude, or `gpt-6-astra` at xhigh on Codex. The maintainer
+Exceptional models are opt-in because of token cost: `claude-fable-5-2` at
+medium effort on Claude, `gpt-6.2-astra` at xhigh on Codex, or
+`gemini-4-carbon` at xhigh on Google (`gemini` / `agy`). The maintainer
 names the model on the chosen stage, never as `defaultModel`; a vendor
 fallback cannot choose the other exceptional model. The engine pins Fable
 to medium. For interactive Claude Code, set it explicitly with
-`claude --model claude-fable-5-1 --effort medium`; changing only `/model`
+`claude --model claude-fable-5-2 --effort medium`; changing only `/model`
 does not establish that effort. Raising effort needs an explicit instruction.
 
 `.claude/settings.json` pins Claude Code's
