@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 #
-# release-phase.sh — the phases `open`, `prepare` and `publish` of .github/workflows/release.yml
+# release-phase.sh — the phases `open`, `prepare` and `publish` of .github/workflows/release-build.yml
 # (BCKLG-1030). One release has one branch, release/<id>, in the repository; the branch is the
 # content of the release.
 #

@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 #
 # release-phase_test.sh — tests for scripts/release-phase.sh (BCKLG-1030), the logic of the
-# phases `open`, `prepare` and `publish` of .github/workflows/release.yml.
+# phases `open`, `prepare` and `publish` of .github/workflows/release-build.yml.
 #
 # Hermetic: a bare repository stands for `origin`, a clone for the runner's checkout, and a stub `gh` for
 # the GitHub Release. Real `git rebase`, `git merge --ff-only` and `git push --force-with-lease` run.

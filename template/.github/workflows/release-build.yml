@@ -1,4 +1,4 @@
-name: release
+name: release-build
 
 # The release workflow of the repository (BCKLG-1030): one branch release/<id> per release, and
 # three phases that scripts/release-phase.sh runs, started by the maintainer or by the release build

@@ -41,7 +41,7 @@ Copier (Jinja2 templates) + bash. No compiled artifact — the deliverable is
 - `setup-speckit.sh` — installs Spec Kit for Claude Code and Codex; run by `scripts/build-speckit-kit.sh`, not copied into projects
 - `scripts/build-speckit-kit.sh` — generates the kit in `template/` (`.claude/skills`, `.agents/skills`, `.specify/`, `.specify/speckit-kit.sha256`)
 - `template/scripts/check-speckit.sh` — compares a project's kit with the manifest
-- `template/scripts/release-phase.sh` + `template/.github/workflows/release.yml` — the phases `open`, `prepare`, `publish` of a release branch `release/<id>`; tested by `template/scripts/release-phase_test.sh`
+- `template/scripts/release-phase.sh` + `template/.github/workflows/release-build.yml` — the phases `open`, `prepare`, `publish` of a release branch `release/<id>`; tested by `template/scripts/release-phase_test.sh`
 - `scripts/adopt.sh` — brings the process into an existing repository without replacing its files (not copied into projects)
 - `hooks/` — what `bootstrap.sh` copies; keep it byte-identical to `.claude/hooks/` and `.githooks/`
 - `README.md` — Copier usage + spec-kit component table + gotchas
