@@ -23,8 +23,8 @@ Copier (Jinja2 templates) + bash. No compiled artifact — the deliverable is
 ## Commands
 
 ```bash
-# lint    bash -n setup-speckit.sh bootstrap.sh scripts/check-linkage.sh scripts/adopt.sh scripts/build-speckit-kit.sh template/scripts/check-speckit.sh .claude/hooks/linkage-guard.sh .githooks/pre-push .githooks/post-checkout
-# test    rc=0; for t in .claude/hooks/*_test.sh .githooks/*_test.sh scripts/*_test.sh template/scripts/check-speckit_test.sh; do bash "$t" || rc=1; done; [ "$rc" = 0 ]
+# lint    bash -n setup-speckit.sh bootstrap.sh scripts/check-linkage.sh scripts/adopt.sh scripts/build-speckit-kit.sh template/scripts/check-speckit.sh template/scripts/release-phase.sh .claude/hooks/linkage-guard.sh .githooks/pre-push .githooks/post-checkout
+# test    rc=0; for t in .claude/hooks/*_test.sh .githooks/*_test.sh scripts/*_test.sh template/scripts/check-speckit_test.sh template/scripts/release-phase_test.sh; do bash "$t" || rc=1; done; [ "$rc" = 0 ]
 # smoke   copier copy --trust --pretend --defaults --data project_name=X --data org_repo=o/r . /tmp/out
 # update  copier update --trust          # run inside a generated project
 # speckit scripts/build-speckit-kit.sh [--check]   # regenerate the kit in template/ (Spec Kit 1.2.2, network); --check fails when it is stale
@@ -41,6 +41,7 @@ Copier (Jinja2 templates) + bash. No compiled artifact — the deliverable is
 - `setup-speckit.sh` — installs Spec Kit for Claude Code and Codex; run by `scripts/build-speckit-kit.sh`, not copied into projects
 - `scripts/build-speckit-kit.sh` — generates the kit in `template/` (`.claude/skills`, `.agents/skills`, `.specify/`, `.specify/speckit-kit.sha256`)
 - `template/scripts/check-speckit.sh` — compares a project's kit with the manifest
+- `template/scripts/release-phase.sh` + `template/.github/workflows/release.yml` — the phases `open`, `prepare`, `publish` of a release branch `release/<id>`; tested by `template/scripts/release-phase_test.sh`
 - `scripts/adopt.sh` — brings the process into an existing repository without replacing its files (not copied into projects)
 - `hooks/` — what `bootstrap.sh` copies; keep it byte-identical to `.claude/hooks/` and `.githooks/`
 - `README.md` — Copier usage + spec-kit component table + gotchas
