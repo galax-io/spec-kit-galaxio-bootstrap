@@ -17,8 +17,7 @@ Earlier report:
 - Sections added: Precedence, The contract with stamped repositories, Development Workflow and Quality Gates, Governance.
 - Location: this file lives at the repository root (.specify/memory/). It is NOT part of the kit in template/,
   which scripts/build-speckit-kit.sh generates and which projects receive.
-- Follow-up TODOs: template/.github/workflows/linkage.yml still uses `actions/checkout@v7` by tag and must be
-  pinned by digest to satisfy Principle VII. No automated check yet keeps hooks/ byte-identical to
+- Follow-up TODOs: no automated check yet keeps hooks/ byte-identical to
   .claude/hooks/ and .githooks/ (Principle V).
 -->
 

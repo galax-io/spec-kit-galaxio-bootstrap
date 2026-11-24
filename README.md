@@ -2,7 +2,9 @@
 
 Galaxio's working scratch template for spinning up a new project with our
 **standard development process already wired in** — spec-kit (the same skills of Claude Code and Codex in every repository),
-the issue↔PR↔milestone linkage gate, and a stack-agnostic `AGENTS.md`/`CLAUDE.md`.
+the release workflow (one branch `release/<id>` per release of the backlog, phases `open`, `prepare`, `publish`),
+and a stack-agnostic `AGENTS.md`/`CLAUDE.md`. Since v0.23.0 there is no linkage gate: a release holds what its
+release branch holds (BCKLG-1030), not what a PR's link says.
 
 The stack does not matter. The *process* is the same for every project, so this
 repo captures the process once and stamps it into any new project.
@@ -72,17 +74,17 @@ It never replaces a file the repository has. The "Feature milestones (ALWAYS)" s
 into the existing `AGENTS.md` (into `CLAUDE.md` when that is where the project keeps its own
 guidance), before "## Commits & PRs", and the "Labels (ALWAYS)" section right after it.
 The "Agents & Models (ALWAYS)" section is also inserted before "## Commits & PRs".
-A section the file already has is kept; missing gate files and the three tiered agents are added; a file that
+A section the file already has is kept; the missing post-checkout hook and the three tiered agents are added; a file that
 exists is kept and reported as "same as" or "differs from" the template so the difference can be
 reviewed; a missing `AGENTS.md` is rendered with copier. It creates no `.copier-answers.yml` and
-does not touch `.claude/settings.json`, which registers the hook. Running it twice changes nothing.
+does not touch `.claude/settings.json`. Running it twice changes nothing.
 
-`--refresh` also brings up to date what an earlier run put there: a gate file, one of the three tiered agents,
+`--refresh` also brings up to date what an earlier run put there: a hook file, one of the three tiered agents,
 or a Feature milestones, Labels or Agents & Models section, that equals the
 template of some released tag is replaced by the current one; one that equals no release is a local variant and
 is kept, with a note. It needs a checkout of this repository with its tags.
 
-The PR check is a workflow, `.github/workflows/linkage.yml`, added when the repository has none that runs `check-linkage.sh --pr`. It needs the secret `BACKLOG_READ_TOKEN`: a fine-grained token with read access to Issues and Metadata of the backlog repository only. A public repository reads it as an organization secret; a private one that runs the gate needs its own copy, because on the free plan an organization secret does not reach a private repository (the backlog's `scripts/set-backlog-token.sh` sets those). The backlog is private, so the job's own token cannot read it, and the gate uses the second token for the calls about the backlog and for nothing else.
+A repository adopted before v0.23.0 keeps the linkage gate's files (`scripts/check-linkage.sh`, `.claude/hooks/linkage-guard.sh`, `.githooks/pre-push`, `.github/workflows/linkage.yml` and their tests) until it removes them; `copier update` to v0.23.0 removes them, together with the hook's line in `.claude/settings.json`, and the secret `BACKLOG_READ_TOKEN` is then deleted from the repository.
 
 ## What you get in a scaffolded project
 
@@ -91,13 +93,12 @@ AGENTS.md              # process (Boundaries / Milestones / Commits & PRs / Rele
                        #   + project placeholders (Role / Stack / Commands / Structure / …)
 CLAUDE.md              # -> @AGENTS.md
 .claude/
-  settings.json        # PreToolUse(Bash) hook wiring + model alias pins (env)
-  hooks/linkage-guard.sh   # ~0-token gate: blocks release tagging unless linkage holds
+  settings.json        # model alias pins (env)
   agents/deep-researcher.md  # claude-opus-5-5 at xhigh, read-only research + Codex second opinion
   agents/infra-worker.md     # claude-sonnet-5-5 at high, mechanical [tier:light] changes
   agents/trivial-worker.md   # claude-haiku-5-5 at high, very simple [tier:trivial] work
 scripts/
-  check-linkage.sh     # verifies issue <-> PR <-> milestone contract (gh + jq)
+  release-phase.sh     # the phases open / prepare / publish of .github/workflows/release-build.yml
   check-speckit.sh     # fails when the Spec Kit kit differs from the template's
 .claude/skills/speckit-*    # the Spec Kit kit: skills of Claude Code ...
 .agents/skills/speckit-*    # ... and of Codex, 35 each, identical in every project

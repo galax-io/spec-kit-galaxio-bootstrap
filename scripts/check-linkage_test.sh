@@ -802,10 +802,11 @@ in_order() { # line, phrase... — succeeds when the line holds every phrase, ea
   done
 }
 if [ -f "$here/build-speckit-kit.sh" ]; then
-  for f in check-linkage.sh check-linkage_test.sh; do
-    check "FR-009: template/scripts/$f is scripts/$f byte for byte" $(cmp -s "$here/$f" "$here/../template/scripts/$f" && echo 0 || echo 1) "cmp scripts/$f template/scripts/$f"
+  # Since v0.23.0 the template has no linkage gate (BCKLG-1030): a release is what its release branch holds.
+  for f in scripts/check-linkage.sh scripts/check-linkage_test.sh .github/workflows/linkage.yml .githooks/pre-push .claude/hooks/linkage-guard.sh; do
+    check "BCKLG-1030: the template has no $f" $([ ! -e "$here/../template/$f" ] && echo 0 || echo 1) "template/$f exists"
   done
-  for f in AGENTS.md template/AGENTS.md.jinja templates/AGENTS.md; do
+  for f in AGENTS.md templates/AGENTS.md; do
     line=$(sed -n '/^## Release Process/,/^### /p' "$here/../$f" | grep -F 'Released: vX.Y.Z')
     # the order of a release: the line, the tag, the release, the milestone closed; then the check that reads the line
     check "FR-008: the Release Process of $f writes Released: vX.Y.Z before the tag and names the check that reads it" $([ "$(wc -l <<<"$line")" -eq 1 ] && in_order "$line" 'Released: vX.Y.Z' 'tag it' 'the release is out' 'close the milestone' 'check-linkage.sh --for-tag' 'finds by it the milestone' && echo 0 || echo 1) "$f: $line"
