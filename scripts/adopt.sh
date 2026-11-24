@@ -24,11 +24,7 @@ It never replaces a file the repository has:
               repository does not get a second source of truth.
               missing otherwise: rendered from the template with copier.
   CLAUDE.md   added when missing, kept otherwise.
-  the PR check  .github/workflows/linkage.yml runs the gate on every pull request; it is not
-              added when a workflow of the repository already runs `check-linkage.sh --pr`.
-  the gate    scripts/check-linkage.sh, its test, .claude/hooks/linkage-guard.sh, its
-              test, .githooks/pre-push and its test, .githooks/post-checkout and its
-              test: each is added when missing;
+  the hooks   .githooks/post-checkout and its test: each is added when missing;
               one that exists is kept and reported as "same as the template" or
               "differs from the template" so the difference can be reviewed.
               A test is not added next to a script that differs from the template:
@@ -39,7 +35,7 @@ It never creates .copier-answers.yml: a later `copier update` would take the
 differences for local edits.
 
 --refresh   also bring what an earlier run of this script put there up to the current
-              template: a gate file, a tiered agent file, or one of the three sections,
+              template: a hook file, a tiered agent file, or one of the three sections,
               that equals the template of some released tag is replaced by the current one ("updated:");
               one that equals no release is a local variant and is kept ("kept:").
               Needs the template's git history (a checkout of the bootstrap repository).
@@ -370,25 +366,17 @@ else
   put CLAUDE.md "$rendered/CLAUDE.md"
 fi
 
-# The gate and tiered agents: missing files are added; local variants are kept.
-files=(scripts/check-linkage.sh scripts/check-linkage_test.sh \
-         .claude/hooks/linkage-guard.sh .claude/hooks/linkage-guard_test.sh \
-         .githooks/pre-push .githooks/pre-push_test.sh \
-         .githooks/post-checkout .githooks/post-checkout_test.sh)
+# The hooks and tiered agents: missing files are added; local variants are kept.
+files=(.githooks/post-checkout .githooks/post-checkout_test.sh)
 for agent in deep-researcher infra-worker trivial-worker; do
   f=".claude/agents/$agent.md"
   [ ! -f "$TEMPLATE_DIR/$f" ] || files+=("$f")
 done
 for f in "${files[@]}"; do
-  # A test belongs to its script: next to a script that differs from the template, the
-  # template's test would assert behaviour the script lacks.
-  script="${f%_test.sh}.sh"
-  # A hook has no .sh: its test belongs to the hook named without _test.sh.
+  # A test belongs to its hook (a hook has no .sh): next to a hook that differs from the
+  # template, the template's test would assert behaviour the hook lacks.
   hook="${f%_test.sh}"
-  if [ ! -e "$TARGET/$f" ] && [ "$script" != "$f" ] && [ "${f#.githooks/}" = "$f" ] \
-     && [ -e "$TARGET/$script" ] && ! cmp -s "$TARGET/$script" "$TEMPLATE_DIR/$script"; then
-    echo "skipped: $f (its script differs from the template)"
-  elif [ ! -e "$TARGET/$f" ] && [ "${f#.githooks/}" != "$f" ] && [ "$hook" != "$f" ] \
+  if [ ! -e "$TARGET/$f" ] && [ "${f#.githooks/}" != "$f" ] && [ "$hook" != "$f" ] \
      && [ -e "$TARGET/$hook" ] && ! cmp -s "$TARGET/$hook" "$TEMPLATE_DIR/$hook"; then
     echo "skipped: $f (its script differs from the template)"
   elif [ ! -e "$TARGET/$f" ]; then
@@ -407,20 +395,5 @@ for f in "${files[@]}"; do
   fi
 done
 
-# The PR check: a workflow that runs the gate on pull requests, unless the repository has one already.
-WF=".github/workflows/linkage.yml"
-if [ -d "$TARGET/.github/workflows" ] && existing="$(grep -lE 'check-linkage\.sh[^|]*--pr' "$TARGET"/.github/workflows/*.y*ml 2>/dev/null | grep -v "/linkage\.yml$" | head -n1)" && [ -n "$existing" ]; then
-  echo "kept: .github/workflows/$(basename "$existing") (already runs the PR gate)"
-elif [ ! -e "$TARGET/$WF" ]; then
-  put "$WF" "$TEMPLATE_DIR/$WF"
-elif cmp -s "$TARGET/$WF" "$TEMPLATE_DIR/$WF"; then
-  echo "kept: $WF (same as the template)"
-elif [ "$REFRESH" = 1 ] && old="$(released_tag "$WF" "$TARGET/$WF")"; then
-  [ "$DRY" = 1 ] || cp -p "$TEMPLATE_DIR/$WF" "$TARGET/$WF"
-  echo "updated: $WF (was the template of $old)"
-else
-  echo "kept: $WF (differs from the template)"
-fi
-
 echo
-echo "Not touched: .copier-answers.yml, .claude/settings.json (which registers the hook), setup-speckit.sh."
+echo "Not touched: .copier-answers.yml, .claude/settings.json, setup-speckit.sh."

@@ -29,7 +29,6 @@ check() { # description, condition-exit-code, detail
 # ---- the fake template and the stub copier -----------------------------------------
 tpl="$tmp/template"
 mkdir -p "$tpl/scripts" "$tpl/.claude/hooks" "$tpl/.githooks" "$tpl/.github/workflows"
-printf 'name: linkage\n# template\n' > "$tpl/.github/workflows/linkage.yml"
 cat > "$tpl/AGENTS.md.jinja" <<'EOF'
 # {{ project_name }} — Agent Guide
 
@@ -55,9 +54,7 @@ One label scheme for every repository.
 - One concern per PR.
 EOF
 printf '# {{ project_name }}\n' > "$tpl/CLAUDE.md.jinja"
-for f in scripts/check-linkage.sh scripts/check-linkage_test.sh .claude/hooks/linkage-guard.sh \
-         .claude/hooks/linkage-guard_test.sh .githooks/pre-push .githooks/pre-push_test.sh \
-         .githooks/post-checkout .githooks/post-checkout_test.sh; do
+for f in .githooks/post-checkout .githooks/post-checkout_test.sh; do
   printf '#!/usr/bin/env bash\n# template %s\n' "$f" > "$tpl/$f"
   chmod +x "$tpl/$f"
 done
@@ -168,31 +165,20 @@ check "tagline: copier is given the project tagline" $(grep -q 'project_tagline=
 new_repo files
 write AGENTS.md $'# Mine\n\n## Commits & PRs\n'
 run "$repo"
-check "files: the linkage script is added" $([ -f "$repo/scripts/check-linkage.sh" ] && echo 0 || echo 1) "out=$out"
-check "files: it is executable" $([ -x "$repo/scripts/check-linkage.sh" ] && echo 0 || echo 1) "out=$out"
-check "files: the hooks are added" $([ -f "$repo/.claude/hooks/linkage-guard.sh" ] && [ -f "$repo/.githooks/pre-push" ] && echo 0 || echo 1) "out=$out"
+check "files: no linkage gate is added (BCKLG-1030)" $([ ! -e "$repo/scripts/check-linkage.sh" ] && [ ! -e "$repo/.claude/hooks/linkage-guard.sh" ] && [ ! -e "$repo/.githooks/pre-push" ] && [ ! -e "$repo/.github/workflows/linkage.yml" ] && echo 0 || echo 1) "out=$out"
 check "files: the post-checkout hook and its test are added" $([ -x "$repo/.githooks/post-checkout" ] && [ -f "$repo/.githooks/post-checkout_test.sh" ] && echo 0 || echo 1) "out=$out"
 check "files: no .copier-answers.yml is created" $([ ! -e "$repo/.copier-answers.yml" ] && echo 0 || echo 1) "out=$out"
-check "files: the added files are reported" $(has 'added: scripts/check-linkage.sh' && echo 0 || echo 1) "out=$out"
+check "files: the added files are reported" $(has 'added: .githooks/post-checkout' && echo 0 || echo 1) "out=$out"
 
 # 7. a file that exists and differs is kept byte for byte and named as different
 new_repo differs
 write AGENTS.md $'# Mine\n\n## Commits & PRs\n'
-write scripts/check-linkage.sh $'#!/usr/bin/env bash\n# my own, ahead of the template\n'
+write .githooks/post-checkout $'#!/usr/bin/env bash\n# my own, ahead of the template\n'
 run "$repo"
-check "differs: the file is untouched" $([ "$(cat "$repo/scripts/check-linkage.sh")" = $'#!/usr/bin/env bash\n# my own, ahead of the template' ] && echo 0 || echo 1) "$(cat "$repo/scripts/check-linkage.sh")"
-check "differs: it is reported as kept and different" $(has 'kept: scripts/check-linkage.sh (differs from the template)' && echo 0 || echo 1) "out=$out"
-check "differs: the other missing files are still added" $([ -f "$repo/.githooks/pre-push" ] && echo 0 || echo 1) "out=$out"
+check "differs: the file is untouched" $([ "$(cat "$repo/.githooks/post-checkout")" = $'#!/usr/bin/env bash\n# my own, ahead of the template' ] && echo 0 || echo 1) "$(cat "$repo/.githooks/post-checkout")"
+check "differs: it is reported as kept and different" $(has 'kept: .githooks/post-checkout (differs from the template)' && echo 0 || echo 1) "out=$out"
+check "differs: the sections are still inserted" $(has 'inserted: AGENTS.md (Feature milestones)' && echo 0 || echo 1) "out=$out"
 
-# 7b. a test belongs to its script: when the script exists and differs from the template,
-#     the template's test for it is not added (it would test behaviour the script lacks)
-new_repo test-follows-script
-write AGENTS.md $'# Mine\n\n## Commits & PRs\n'
-write scripts/check-linkage.sh $'#!/usr/bin/env bash\n# my own, ahead of the template\n'
-run "$repo"
-check "test-follows-script: the template's test is not added next to a different script" $([ ! -e "$repo/scripts/check-linkage_test.sh" ] && echo 0 || echo 1) "out=$out"
-check "test-follows-script: it says why" $(has 'skipped: scripts/check-linkage_test.sh (its script differs from the template)' && echo 0 || echo 1) "out=$out"
-check "test-follows-script: the other tests are still added" $([ -f "$repo/.githooks/pre-push_test.sh" ] && [ -f "$repo/.claude/hooks/linkage-guard_test.sh" ] && echo 0 || echo 1) "out=$out"
 # 7c. a hook's test belongs to the hook: next to a post-checkout that differs from the template,
 #     the template's post-checkout_test.sh is not added
 new_repo test-follows-hook
@@ -201,26 +187,25 @@ write .githooks/post-checkout $'#!/usr/bin/env bash\n# my own post-checkout\n'
 run "$repo"
 check "test-follows-hook: the template's test is not added next to a different hook" $([ ! -e "$repo/.githooks/post-checkout_test.sh" ] && echo 0 || echo 1) "out=$out"
 check "test-follows-hook: it says why" $(has 'skipped: .githooks/post-checkout_test.sh (its script differs from the template)' && echo 0 || echo 1) "out=$out"
-check "test-follows-hook: pre-push and its test are still added" $([ -f "$repo/.githooks/pre-push" ] && [ -f "$repo/.githooks/pre-push_test.sh" ] && echo 0 || echo 1) "out=$out"
 
 new_repo test-follows-same
 write AGENTS.md $'# Mine\n\n## Commits & PRs\n'
-mkdir -p "$repo/scripts"; cp "$tpl/scripts/check-linkage.sh" "$repo/scripts/check-linkage.sh"
+mkdir -p "$repo/.githooks"; cp "$tpl/.githooks/post-checkout" "$repo/.githooks/post-checkout"
 run "$repo"
-check "test-follows-same: next to an identical script the test is added" $([ -f "$repo/scripts/check-linkage_test.sh" ] && echo 0 || echo 1) "out=$out"
+check "test-follows-same: next to an identical hook the test is added" $([ -f "$repo/.githooks/post-checkout_test.sh" ] && echo 0 || echo 1) "out=$out"
 new_repo test-own
 write AGENTS.md $'# Mine\n\n## Commits & PRs\n'
-write scripts/check-linkage.sh $'#!/usr/bin/env bash\n# my own\n'
-write scripts/check-linkage_test.sh $'#!/usr/bin/env bash\n# my own test\n'
+write .githooks/post-checkout $'#!/usr/bin/env bash\n# my own\n'
+write .githooks/post-checkout_test.sh $'#!/usr/bin/env bash\n# my own test\n'
 run "$repo"
-check "test-own: a test the repository has is kept, whatever the script" $([ "$(cat "$repo/scripts/check-linkage_test.sh")" = $'#!/usr/bin/env bash\n# my own test' ] && has 'kept: scripts/check-linkage_test.sh (differs from the template)' && echo 0 || echo 1) "out=$out"
+check "test-own: a test the repository has is kept, whatever the hook" $([ "$(cat "$repo/.githooks/post-checkout_test.sh")" = $'#!/usr/bin/env bash\n# my own test' ] && has 'kept: .githooks/post-checkout_test.sh (differs from the template)' && echo 0 || echo 1) "out=$out"
 
 # 8. a file identical to the template is reported as the same
 new_repo same
 write AGENTS.md $'# Mine\n\n## Commits & PRs\n'
-mkdir -p "$repo/scripts"; cp "$tpl/scripts/check-linkage.sh" "$repo/scripts/check-linkage.sh"
+mkdir -p "$repo/.githooks"; cp "$tpl/.githooks/post-checkout" "$repo/.githooks/post-checkout"
 run "$repo"
-check "same: an identical file is reported as the same" $(has 'kept: scripts/check-linkage.sh (same as the template)' && echo 0 || echo 1) "out=$out"
+check "same: an identical file is reported as the same" $(has 'kept: .githooks/post-checkout (same as the template)' && echo 0 || echo 1) "out=$out"
 
 # 9. --dry-run reports and writes nothing
 new_repo dry
@@ -228,7 +213,7 @@ write AGENTS.md $'# Mine\n\n## Commits & PRs\n'
 before=$(snapshot)
 run --dry-run "$repo"
 check "dry-run: nothing is written" $([ "$(snapshot)" = "$before" ] && echo 0 || echo 1) "$(snapshot)"
-check "dry-run: it still reports what it would do" $(has 'inserted: AGENTS.md (Feature milestones)' && has 'inserted: AGENTS.md (Labels)' && has 'added: scripts/check-linkage.sh' && echo 0 || echo 1) "out=$out"
+check "dry-run: it still reports what it would do" $(has 'inserted: AGENTS.md (Feature milestones)' && has 'inserted: AGENTS.md (Labels)' && has 'added: .githooks/post-checkout' && echo 0 || echo 1) "out=$out"
 check "dry-run: it says it is a dry run" $(has 'dry run' && echo 0 || echo 1) "out=$out"
 
 # 10. a second run changes nothing
@@ -251,7 +236,7 @@ new_repo no-template
 out="$(PATH="$bin:$PATH" TEMPLATE_DIR="$tmp/nope" COPIER_LOG="$tmp/copier.log" bash "$script" "$repo" 2>&1)"; rc=$?
 check "usage: a missing template directory fails with 2" $([ "$rc" -eq 2 ] && echo 0 || echo 1) "rc=$rc out=$out"
 
-# ---- --refresh: bring gate files and the section up to the current template, but only ----
+# ---- --refresh: bring hook files and the section up to the current template, but only ----
 # ---- those that equal a released version of the template; a local variant is kept ---------
 tpl2="$tmp/tpl2"; mkdir -p "$tpl2/template/scripts" "$tpl2/template/.claude/hooks" "$tpl2/template/.githooks" "$tpl2/template/.github/workflows"
 (
@@ -266,10 +251,7 @@ tpl2="$tmp/tpl2"; mkdir -p "$tpl2/template/scripts" "$tpl2/template/.claude/hook
       printf 'model: model-%s\neffort: high\n' "$1" > "template/.claude/agents/$agent.md"
     done
     printf '# {{ project_name }}\n' > template/CLAUDE.md.jinja
-    printf 'name: linkage\n# %s\n' "$1" > template/.github/workflows/linkage.yml
-    for f in scripts/check-linkage.sh scripts/check-linkage_test.sh .claude/hooks/linkage-guard.sh \
-             .claude/hooks/linkage-guard_test.sh .githooks/pre-push .githooks/pre-push_test.sh \
-             .githooks/post-checkout .githooks/post-checkout_test.sh; do
+    for f in .githooks/post-checkout .githooks/post-checkout_test.sh; do
       printf '#!/usr/bin/env bash\n# %s %s\n' "$f" "$1" > "template/$f"
     done
   }
@@ -287,7 +269,7 @@ run2() { # adopt.sh arguments against the template that has history
   out="$(PATH="$bin:$PATH" TEMPLATE_DIR="$tpl2/template" COPIER_LOG="$tmp/copier.log" bash "$script" "$@" 2>&1)"; rc=$?
 }
 
-# Models and agent pins follow the same refresh contract as the gate files.
+# Models and agent pins follow the same refresh contract as the hook files.
 new_repo models-missing
 write AGENTS.md $'# Mine\n\nOur text.\n\n## Commits & PRs\n'
 run2 "$repo"
@@ -326,28 +308,28 @@ gate_at() { # relative path, version label — the content a template of that ve
   printf '#!/usr/bin/env bash\n# %s %s\n' "$1" "$2"
 }
 
-# R1. a gate file equal to an older released template is replaced, with the version named
+# R1. a hook file equal to an older released template is replaced, with the version named
 new_repo refresh-old
 write AGENTS.md $'# Mine\n\n## Commits & PRs\n'
-write scripts/check-linkage.sh "$(gate_at scripts/check-linkage.sh one)"$'\n'
+write .githooks/post-checkout "$(gate_at .githooks/post-checkout one)"$'\n'
 run2 --refresh "$repo"
-check "refresh: a file equal to an old template is updated" $([ "$(cat "$repo/scripts/check-linkage.sh")" = "$(gate_at scripts/check-linkage.sh three)" ] && echo 0 || echo 1) "$(cat "$repo/scripts/check-linkage.sh")"
-check "refresh: the report names the version it was" $(has 'updated: scripts/check-linkage.sh (was the template of v0.1.0)' && echo 0 || echo 1) "out=$out"
+check "refresh: a file equal to an old template is updated" $([ "$(cat "$repo/.githooks/post-checkout")" = "$(gate_at .githooks/post-checkout three)" ] && echo 0 || echo 1) "$(cat "$repo/.githooks/post-checkout")"
+check "refresh: the report names the version it was" $(has 'updated: .githooks/post-checkout (was the template of v0.1.0)' && echo 0 || echo 1) "out=$out"
 
-# R2. a gate file that equals no released template is kept
+# R2. a hook file that equals no released template is kept
 new_repo refresh-local
 write AGENTS.md $'# Mine\n\n## Commits & PRs\n'
-write scripts/check-linkage.sh $'#!/usr/bin/env bash\n# local variant\n'
+write .githooks/post-checkout $'#!/usr/bin/env bash\n# local variant\n'
 run2 --refresh "$repo"
-check "refresh: a local variant is kept" $([ "$(cat "$repo/scripts/check-linkage.sh")" = $'#!/usr/bin/env bash\n# local variant' ] && echo 0 || echo 1) "$(cat "$repo/scripts/check-linkage.sh")"
-check "refresh: it is reported as a local variant" $(has 'kept: scripts/check-linkage.sh (differs from every released template)' && echo 0 || echo 1) "out=$out"
+check "refresh: a local variant is kept" $([ "$(cat "$repo/.githooks/post-checkout")" = $'#!/usr/bin/env bash\n# local variant' ] && echo 0 || echo 1) "$(cat "$repo/.githooks/post-checkout")"
+check "refresh: it is reported as a local variant" $(has 'kept: .githooks/post-checkout (differs from every released template)' && echo 0 || echo 1) "out=$out"
 
 # R3. a file already equal to the current template is not touched
 new_repo refresh-current
 write AGENTS.md $'# Mine\n\n## Commits & PRs\n'
-mkdir -p "$repo/scripts"; cp "$tpl2/template/scripts/check-linkage.sh" "$repo/scripts/check-linkage.sh"
+mkdir -p "$repo/.githooks"; cp "$tpl2/template/.githooks/post-checkout" "$repo/.githooks/post-checkout"
 run2 --refresh "$repo"
-check "refresh: a current file is reported as the same" $(has 'kept: scripts/check-linkage.sh (same as the template)' && echo 0 || echo 1) "out=$out"
+check "refresh: a current file is reported as the same" $(has 'kept: .githooks/post-checkout (same as the template)' && echo 0 || echo 1) "out=$out"
 
 # R4. an old section is replaced by the current one, and nothing else of AGENTS.md changes
 new_repo refresh-section
@@ -393,51 +375,24 @@ $(cat "$repo/AGENTS.md")"
 # R6. without --refresh an old file is kept as before
 new_repo refresh-off
 write AGENTS.md $'# Mine\n\n## Commits & PRs\n'
-write scripts/check-linkage.sh "$(gate_at scripts/check-linkage.sh one)"$'\n'
+write .githooks/post-checkout "$(gate_at .githooks/post-checkout one)"$'\n'
 run2 "$repo"
-check "refresh-off: no update without --refresh" $(has 'kept: scripts/check-linkage.sh (differs from the template)' && ! has 'updated:' && echo 0 || echo 1) "out=$out"
+check "refresh-off: no update without --refresh" $(has 'kept: .githooks/post-checkout (differs from the template)' && ! has 'updated:' && echo 0 || echo 1) "out=$out"
 
 # R7. --dry-run with --refresh writes nothing
 new_repo refresh-dry
 write AGENTS.md $'# Mine\n\n## Feature milestones (ALWAYS)\n\nRule one.\n\n## Commits & PRs\n'
-write scripts/check-linkage.sh "$(gate_at scripts/check-linkage.sh one)"$'\n'
+write .githooks/post-checkout "$(gate_at .githooks/post-checkout one)"$'\n'
 before=$(snapshot)
 run2 --dry-run --refresh "$repo"
 check "refresh-dry: nothing is written" $([ "$(snapshot)" = "$before" ] && echo 0 || echo 1) "$(diff <(echo "$before") <(snapshot))"
-check "refresh-dry: it still reports the update" $(has 'updated: scripts/check-linkage.sh' && echo 0 || echo 1) "out=$out"
+check "refresh-dry: it still reports the update" $(has 'updated: .githooks/post-checkout' && echo 0 || echo 1) "out=$out"
 
 # R8. --refresh needs the template's history
 new_repo refresh-nogit
 write AGENTS.md $'# Mine\n\n## Commits & PRs\n'
 run --refresh "$repo"
 check "refresh-nogit: a template without history is refused" $([ "$rc" -eq 2 ] && has 'history' && echo 0 || echo 1) "rc=$rc out=$out"
-
-# W1. the PR check workflow is added when the repository has none
-new_repo wf-add
-write AGENTS.md $'# Mine\n\n## Commits & PRs\n'
-run "$repo"
-check "workflow: a repository without a PR check gets .github/workflows/linkage.yml" $([ -f "$repo/.github/workflows/linkage.yml" ] && has 'added: .github/workflows/linkage.yml' && echo 0 || echo 1) "out=$out"
-
-# W2. a workflow of the repository that already runs the PR gate is enough
-new_repo wf-existing
-write AGENTS.md $'# Mine\n\n## Commits & PRs\n'
-write .github/workflows/ci.yml $'name: ci\njobs:\n  linkage:\n    steps:\n      - run: bash scripts/check-linkage.sh --pr "$N"\n'
-run "$repo"
-check "workflow: an existing job that runs the PR gate is kept and no second workflow is added" $([ ! -e "$repo/.github/workflows/linkage.yml" ] && has 'kept: .github/workflows/ci.yml (already runs the PR gate)' && echo 0 || echo 1) "out=$out"
-
-# W3. a workflow that only audits a release is not a PR check
-new_repo wf-release-only
-write AGENTS.md $'# Mine\n\n## Commits & PRs\n'
-write .github/workflows/release.yml $'name: release\njobs:\n  guard:\n    steps:\n      - run: bash scripts/check-linkage.sh --for-tag "$TAG"\n'
-run "$repo"
-check "workflow: a release-only audit does not count as a PR check" $([ -f "$repo/.github/workflows/linkage.yml" ] && echo 0 || echo 1) "out=$out"
-
-# W4. a linkage.yml the repository already has is kept, byte for byte
-new_repo wf-own
-write AGENTS.md $'# Mine\n\n## Commits & PRs\n'
-write .github/workflows/linkage.yml $'name: linkage\n# mine\n'
-run "$repo"
-check "workflow: an existing linkage.yml is untouched" $([ "$(cat "$repo/.github/workflows/linkage.yml")" = $'name: linkage\n# mine' ] && has 'kept: .github/workflows/linkage.yml (differs from the template)' && echo 0 || echo 1) "out=$out"
 
 # ---- --speckit: the Spec Kit kit of the template, byte for byte --------------------------
 # A second fake template, with a kit: two skills, a script, the manifest, the constitution's
