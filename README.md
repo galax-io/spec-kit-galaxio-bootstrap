@@ -2,9 +2,9 @@
 
 Galaxio's working scratch template for spinning up a new project with our
 **standard development process already wired in** — spec-kit (the same skills of Claude Code and Codex in every repository),
-the release workflow (one branch `release/X.Y.0` per version of the repository, one version per release of the backlog; phases `open`, `prepare`, `publish`),
-and a stack-agnostic `AGENTS.md`/`CLAUDE.md`. Since v0.23.0 there is no linkage gate: a release holds what its
-release branch holds (BCKLG-1030), not what a PR's link says.
+the release workflow (trunk-based: all work on `main`, `release/X.Y.0` cut from `main` at the release and kept for its patches; phases `prepare`, `publish`),
+and a stack-agnostic `AGENTS.md`/`CLAUDE.md`. Since v0.23.0 there is no linkage gate: a version holds what `main`
+held when its branch was cut (BCKLG-1038), not what a PR's link says.
 
 The stack does not matter. The *process* is the same for every project, so this
 repo captures the process once and stamps it into any new project.
@@ -98,7 +98,7 @@ CLAUDE.md              # -> @AGENTS.md
   agents/infra-worker.md     # claude-sonnet-5-5 at high, mechanical [tier:light] changes
   agents/trivial-worker.md   # claude-haiku-5-5 at high, very simple [tier:trivial] work
 scripts/
-  release-phase.sh     # the phases open / prepare / publish of .github/workflows/release-build.yml
+  release-phase.sh     # the phases prepare / publish of .github/workflows/release-build.yml
   check-speckit.sh     # fails when the Spec Kit kit differs from the template's
 .claude/skills/speckit-*    # the Spec Kit kit: skills of Claude Code ...
 .agents/skills/speckit-*    # ... and of Codex, 35 each, identical in every project
