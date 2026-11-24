@@ -2,7 +2,7 @@
 
 Galaxio's working scratch template for spinning up a new project with our
 **standard development process already wired in** — spec-kit (the same skills of Claude Code and Codex in every repository),
-the release workflow (one branch `release/<id>` per release of the backlog, phases `open`, `prepare`, `publish`),
+the release workflow (one branch `release/X.Y.0` per version of the repository, one version per release of the backlog; phases `open`, `prepare`, `publish`),
 and a stack-agnostic `AGENTS.md`/`CLAUDE.md`. Since v0.23.0 there is no linkage gate: a release holds what its
 release branch holds (BCKLG-1030), not what a PR's link says.
 
