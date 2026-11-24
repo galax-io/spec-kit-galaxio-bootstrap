@@ -11,8 +11,9 @@
 #            A green prepare marks the head it checked in refs/release-prepared/X.Y.0.
 #   publish  only when that mark is the head of the branch and origin/main is an ancestor of it:
 #            main is fast-forwarded to the branch, the version is tagged on main, a GitHub Release is
-#            made, the branch and the mark are deleted. With no branch (an urgent release) the version
-#            is tagged on the current main. A version that is already tagged on main changes nothing.
+#            made, the branch and the mark are deleted. Without its branch nothing is published: an
+#            urgent release is a branch too, opened from main, with the urgent fix cherry-picked onto it.
+#            A version that is already tagged on main changes nothing.
 #
 # Usage: release-phase.sh <open|prepare|publish> --release <id> --version vX.Y.0 [--result <file>]
 #
@@ -135,22 +136,17 @@ case "$phase" in
       refuse "the tag $version exists and is not this release's; a tag is never moved"
     fi
 
-    if has_branch; then
-      head="$(git rev-parse "refs/remotes/origin/$branch")"
-      [ "$(remote_sha "$mark")" = "$head" ] || refuse "no green prepare of the head of $branch ($head); run prepare"
-      git merge-base --is-ancestor origin/main "$head" || refuse "main moved after prepare; run prepare again"
-      included="$(pr_numbers "$head")"
-      git checkout -q -B main origin/main && git merge -q --ff-only "$head" || refuse "main cannot be fast-forwarded to $branch"
-      git push -q origin main || refuse "cannot push main"
-    else
-      # urgent: no branch, the work is on main already
-      git checkout -q -B main origin/main
-    fi
+    # Every release, an urgent one too, is published from its branch: nothing is tagged on main without it.
+    has_branch || refuse "$branch does not exist: a version is published only from its branch; open it from main, cherry-pick the urgent fix onto it, run prepare, then publish"
+    head="$(git rev-parse "refs/remotes/origin/$branch")"
+    [ "$(remote_sha "$mark")" = "$head" ] || refuse "no green prepare of the head of $branch ($head); run prepare"
+    git merge-base --is-ancestor origin/main "$head" || refuse "main moved after prepare; run prepare again"
+    included="$(pr_numbers "$head")"
+    git checkout -q -B main origin/main && git merge -q --ff-only "$head" || refuse "main cannot be fast-forwarded to $branch"
+    git push -q origin main || refuse "cannot push main"
 
     git tag "$version" HEAD && git push -q origin "refs/tags/$version" || refuse "cannot tag $version"
-    if has_branch; then
-      git push -q origin ":refs/heads/$branch" ":$mark" || refuse "cannot delete $branch"
-    fi
+    git push -q origin ":refs/heads/$branch" ":$mark" || refuse "cannot delete $branch"
     gh release create "$version" --verify-tag --title "$version" --generate-notes || refuse "the tag $version is set, the release is not made; run publish again"
     tag="$(jq -n --arg t "$version" '$t')"
     write_result published

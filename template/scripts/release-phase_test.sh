@@ -157,12 +157,21 @@ check "SC-006: a second publish changes no tag, no main and makes no second rele
 phase prepare --release r2 --version v1.4.0
 check "US2: the next release's prepare rebases its branch onto the published main" "$(git --git-dir="$origin" merge-base --is-ancestor refs/heads/main refs/heads/release/1.4.0 && echo 0 || echo 1)" "rc=$rc out=$out"
 
-# FR-008 — an urgent release: publish with no branch tags the current main
+# FR-008 — an urgent release is a branch like any other: release/X.Y.0 opened from main, the urgent fix
+# cherry-picked onto it, prepare, publish. Nothing is tagged on main without its branch.
 new_repo
-main_commit fix.txt fix "fix: urgent (#60)"
 main_before="$(ref refs/heads/main)"
 phase publish --release m1.1 --version v1.4.0
-check "FR-008: publish with no release branch tags main" "$([ "$rc" -eq 0 ] && [ "$(ref 'refs/tags/v1.4.0^{commit}')" = "$main_before" ] && [ "$(ref refs/heads/main)" = "$main_before" ] && echo 0 || echo 1)" "rc=$rc out=$out"
+check "FR-008: publish with no release branch is refused" "$([ "$rc" -ne 0 ] && echo 0 || echo 1)" "rc=$rc out=$out"
+check "FR-008: the refused publish sets no tag, leaves main and makes no GitHub Release" "$(! has_ref refs/tags/v1.4.0 && [ "$(ref refs/heads/main)" = "$main_before" ] && ! grep -q 'release create' "$GH_LOG" && echo 0 || echo 1)" "rc=$rc out=$out $(cat "$GH_LOG")"
+check "FR-008: the refusal says to open the branch from main and cherry-pick onto it" "$(grep -q 'cherry-pick' <<<"$out" && grep -q 'release/1.4.0' <<<"$out" && echo 0 || echo 1)" "out=$out"
+# the fix is made where it belongs (here a branch of its own), and cherry-picked onto the urgent release's branch
+( cd "$work" && git checkout -q -b fix/urgent main && printf 'fix\n' > fix.txt && git add fix.txt && git commit -q -m "fix: urgent (#60)" && git push -q origin fix/urgent )
+phase open --release m1.1 --version v1.4.0
+( cd "$work" && git fetch -q origin && git checkout -q -B release/1.4.0 origin/release/1.4.0 && git cherry-pick -x origin/fix/urgent >/dev/null && git push -q origin release/1.4.0 )
+phase prepare --release m1.1 --version v1.4.0
+phase publish --release m1.1 --version v1.4.0
+check "FR-008: the urgent release's branch, with the cherry-picked fix, is published on main" "$([ "$rc" -eq 0 ] && [ "$(ref 'refs/tags/v1.4.0^{commit}')" = "$(ref refs/heads/main)" ] && [ "$(git --git-dir="$origin" show main:fix.txt 2>/dev/null)" = fix ] && ! has_ref refs/heads/release/1.4.0 && echo 0 || echo 1)" "rc=$rc out=$out"
 check "FR-008: the urgent publish makes a GitHub Release" "$(grep -q 'release create v1.4.0' "$GH_LOG" && echo 0 || echo 1)" "$(cat "$GH_LOG")"
 
 printf '\n%d passed, %d failed\n' "$pass" "$fail"
