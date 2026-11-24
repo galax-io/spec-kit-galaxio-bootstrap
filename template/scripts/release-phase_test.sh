@@ -144,7 +144,9 @@ commit_on release/1.3.0 one.txt 1 "feat: one (#31)"; commit_on release/1.4.0 two
 phase prepare --release r1 --version v1.3.0
 phase publish --release r1 --version v1.3.0
 check "FR-005: publish succeeds after a green prepare" "$([ "$rc" -eq 0 ] && [ "$(result .status)" = published ] && echo 0 || echo 1)" "rc=$rc out=$out"
-check "SC-001: main holds the PR of r1 and not the PR of r2" "$(log_of main | grep -qF 'feat: one (#31)' && ! log_of main | grep -qF 'feat: two (#51)' && echo 0 || echo 1)" "$(log_of main)"
+# The log is read once: grep -q stops at its match, and under pipefail the log's SIGPIPE would fail a pipe into it.
+main_log="$(log_of main)"
+check "SC-001: main holds the PR of r1 and not the PR of r2" "$(grep -qF 'feat: one (#31)' <<<"$main_log" && ! grep -qF 'feat: two (#51)' <<<"$main_log" && echo 0 || echo 1)" "$main_log"
 check "FR-005: main is the branch's head, fast-forwarded without a merge commit" "$([ "$(log_of main | head -1)" = "feat: one (#31)" ] && [ -z "$(git --git-dir="$origin" log --merges --format=%h main)" ] && echo 0 || echo 1)" ""
 check "FR-005: the tag stands on main" "$([ "$(ref 'refs/tags/v1.3.0^{commit}')" = "$(ref refs/heads/main)" ] && echo 0 || echo 1)" "$(git --git-dir="$origin" tag)"
 check "FR-005: the release branch is deleted, the other release's branch stays" "$(! has_ref refs/heads/release/1.3.0 && has_ref refs/heads/release/1.4.0 && echo 0 || echo 1)" ""
