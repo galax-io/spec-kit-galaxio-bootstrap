@@ -1,5 +1,14 @@
 <!--
 Sync Impact Report
+- Version change: 1.1.0 -> 2.0.0
+- Bump rationale: MAJOR — Principle V removed: the linkage gate (scripts/check-linkage.sh, the
+  linkage-guard hook, the pre-push hook and their copies under hooks/) left the kit, as it left every
+  repository with BCKLG-1030 (template v0.23.0). Its number is kept, empty.
+- Principles removed: V. The gate scripts are copied verbatim.
+- Contract: check-linkage.sh is no longer a shipped command line.
+- Follow-up TODOs: none (the earlier TODO on keeping hooks/ identical went with Principle V).
+
+Earlier report:
 - Version change: 1.0.0 -> 1.1.0
 - Bump rationale: MINOR — Principles I and VI widened to cover layers (layers/<name>/), the few kit files a
   preset changes for one repository (galax-io/galaxio-sdlc-backlog#296: the backlog's `specify`).
@@ -87,15 +96,10 @@ principles specs are checked against.
 Rationale: `copier update` is how process changes reach ~24 repositories; an update that conflicts or clobbers
 edits stops the rollout or silently loses a project's own text.
 
-### V. The gate scripts are copied verbatim
+### V. (Removed in 2.0.0)
 
-- `scripts/check-linkage.sh` and its test, `.claude/hooks/linkage-guard.sh` and its test, and `.githooks/pre-push`
-  and its test MUST be byte-identical to their copies under `template/` and, for the hooks, under `hooks/`.
-- A shipped gate script MUST NOT be re-implemented or forked in templates; it changes here, with its suite, and is
-  copied.
-
-Rationale: the linkage gate is the mechanical enforcement of the ecosystem's backlog rule; two versions of it would
-enforce two different rules.
+The linkage gate this principle kept identical across its copies left the organization with BCKLG-1030; the
+number stays so that the principles after it keep theirs.
 
 ### VI. adopt.sh adds, it does not replace
 
@@ -134,8 +138,7 @@ recognises earlier output by released tags; moving a tag breaks both.
 
 What a repository receives from here is a public, serialized interface: the `copier.yml` question names and
 answers file, the paths of shipped files, the manifest format of `.specify/speckit-kit.sha256`, the
-`MODIFIED`/`MISSING`/`EXTRA` output of `check-speckit.sh`, and the command-line of `check-linkage.sh` and
-`adopt.sh`. Renaming or removing any of them is a compatibility change and MUST be approved by the maintainer
+`MODIFIED`/`MISSING`/`EXTRA` output of `check-speckit.sh`, and the command-line of `adopt.sh`. Renaming or removing any of them is a compatibility change and MUST be approved by the maintainer
 before it is planned, and MUST come with the migration path required by Principle IV.
 
 ## Development Workflow and Quality Gates
@@ -156,4 +159,4 @@ the Sync Impact Report: MAJOR for removing or redefining a principle, MINOR for 
 it, PATCH for wording. Specs and plans that touch this repository MUST state which principles they affect, and a
 reviewer MUST be able to answer each affected principle with yes or no.
 
-**Version**: 1.1.0 | **Ratified**: 2026-10-20 | **Last Amended**: 2026-10-20
+**Version**: 2.0.0 | **Ratified**: 2026-10-20 | **Last Amended**: 2026-11-25
