@@ -54,12 +54,33 @@
 
 ## Milestones (ALWAYS)
 
-Every piece of work is tied to a milestone. No exceptions unless explicitly told otherwise.
+A product repository has no milestones: a release is a business milestone of `galax-io/galaxio-sdlc-backlog` (see "Feature milestones"), and a PR here carries none.
 
-- **Every PR** must be assigned to the active milestone before merging. No milestone = do not merge.
-- **Issues are for important tasks**, not technical ones. A PR that completes one writes `Closes owner/repo#N` (the issue closes when the PR lands on `main`); one PR of several writes `Part of owner/repo#N`. A linked issue carries the PR's milestone. A technical PR (sync, pins, docs, CI) needs no issue: its commit already records it.
-- **Spec work** (`specs/BCKLG-<N>-*/`) belongs to the milestone that owns the spec and travels in the feature's backlog PR together with its work, never in a PR of its own. Link that PR to the milestone immediately when creating it.
-- **Active milestone** = the lowest-numbered open milestone that matches the current spec/plan. Check `gh api repos/{{ORG_REPO}}/milestones` if unsure.
+- **Issues are for important tasks**, not technical ones. A PR that completes one writes `Closes owner/repo#N` (the issue closes when the PR lands on `main`); one PR of several writes `Part of owner/repo#N`. A technical PR (sync, pins, docs, CI) needs no issue: its commit already records it.
+- **Spec work** (`specs/BCKLG-<N>-*/`) lives in the backlog and travels in the feature's backlog PR together with its work, never in a PR of its own.
+
+## Feature milestones (ALWAYS)
+
+A feature is an issue in `galax-io/galaxio-sdlc-backlog`. It belongs to exactly one backlog milestone whose description has the line `Release: business`: that milestone is its release.
+
+- **Trunk-based.** `main` is the trunk: every PR, a feature's, a fix, a bot's or CI, is opened into `main` from a short-lived branch. Unfinished behaviour is not merged or stays behind a flag. The PR of a feature writes `Part of galax-io/galaxio-sdlc-backlog#<feature>`, which records it in the feature.
+- **Work enters through the backlog.** A bug, an audit finding or a request is not worked on until it belongs to a feature: grouped into one or given one. An issue from outside stays in its repository and carries the label `status:needs-feature` until it is linked to a feature in the backlog.
+- **Release.** The backlog's `scripts/release-build.sh <release>` gives this repository the next minor, `vX.Y.0`, when `main` has commits after its last tag, and runs the phase `prepare` in every such repository: `release/X.Y.0` is cut from `main` and this repository's checks run on it. Only when every repository is green does it run `publish` everywhere: the tag is set on the head `prepare` checked and the GitHub Release is made; `main` is not touched and the branch stays. A red check in one repository publishes nothing anywhere. The backlog's release of the milestone lists each repository's version and links its GitHub Release.
+- **Patch.** A fix of a released version is a PR into `main` first, then `git cherry-pick -x` onto `release/X.Y.0` by a PR into that branch; `prepare` and `publish` with `vX.Y.Z` tag it there. A release branch is never merged into `main`.
+- **Feature done.** The feature's documents PR in the backlog writes `Closes galax-io/galaxio-sdlc-backlog#<feature>` and is merged last; the work's PRs here write `Part of`.
+- **Published releases are not edited.** A fix after the release is a patch on the release branch or the next release; a tag is never moved.
+
+## Labels (ALWAYS)
+
+One label scheme for every repository of the organization: `scripts/labels.json` in `galax-io/galaxio-sdlc-backlog`. A label says what the milestone and the feature link do not: the kind of work, its topic, how bad it is, where it stands.
+
+- **Names.** Every label is `group:value`. Labels a tool owns (GitHub's `good first issue` and `help wanted`, Dependabot's, and those code reads, listed as `reserved`) are left alone.
+- **Exactly one `type:*` on every open issue:** `bug`, `enhancement`, `docs`, `maintenance`, `question`; in the backlog `type:feature` (an issue of a business milestone) or `type:standing` (the standing feature of an older milestone). An issue without a type is not triaged.
+- **At most one each:** `severity:*` (`critical`, `high`, `medium`, `low`: the impact, not the order of work), `status:*` (`needs-triage`, `needs-info`, `needs-feature`, `ready-for-agent`, `ready-for-human`, `blocked`), `tier:*`.
+- **Any number:** `area:*` (topics shared by every repository), `module:*` (parts of one repository, declared in the scheme), `source:external`, `source:audit`.
+- **Not labels.** The order of work is the milestone: no `priority:*`. The feature is the `Part of` link: no `feature:*`. A rejected or duplicate issue is closed with that reason and a comment: no `wontfix`, `invalid`, `duplicate`.
+- **The engine's labels** `sdlc:*` live in the backlog: only the engine sets `sdlc:gate`, `sdlc:done` and `sdlc:failed`. The label of a run's workflow, `workflow:<pipeline name>`, is the maintainer's to set, at most one on an intent; the engine never sets or removes it.
+- **A new label is a change to the scheme**, a PR to `scripts/labels.json`, not a label made in one repository. `scripts/sync-labels.sh` applies the scheme; `--check` lists what breaks it.
 
 ## Task number (ALWAYS)
 
@@ -69,7 +90,7 @@ A task of the backlog has one number across the organization: `BCKLG-<N>`, where
 - **Branch.** A task's documents branch in the backlog is `spec/BCKLG-<N>-<name>`, whether made by hand or by the engine, which works on it and opens no other branch in the backlog; the engine's run is `BCKLG-<N>-<time>`, and its branches in the code repositories are `sdlc/BCKLG-<N>-<time>`.
 - **Commit.** A commit that does a task's work carries the trailer `Refs: BCKLG-<N>`; its subject stays a Conventional Commit.
 - **PR.** Its body carries the line `Refs: BCKLG-<N>` beside `Part of galax-io/galaxio-sdlc-backlog#<N>`, or beside `Closes galax-io/galaxio-sdlc-backlog#<N>` in the task's documents PR.
-- **Checked.** `scripts/check-linkage.sh --pr` fails a PR of a feature without its number, a spec directory it adds that is not named by a task, and a spec, plan or tasks without the tasks line; `--specs` checks every spec of a checkout.
+- **Checked.** The backlog's `scripts/check-linkage.sh --specs` checks every spec there.
 
 ## Commits & PRs
 
@@ -116,7 +137,7 @@ Route work by the reasoning it needs, not by habit; parallelize only where agent
 
 Trunk-based with release branches. Trunk is `main`; `release/*` branches are cut from `main` for stabilization. Pushing a `vX.Y.Z` tag on `main` or a `release/*` branch triggers the release workflow ({{PUBLISH_MECHANISM}}) and creates a GitHub Release ({{RELEASE_NOTES_TOOL}}).
 
-Work goes in the theme milestone. When the theme's work in this repository is done, choose the next version by what it contains, write the line `Released: vX.Y.Z` in the theme milestone's description, then tag it as below; the tag publishes the release, and once the release is out, close the milestone. The line comes before the tag: the check before a tag (`scripts/check-linkage.sh --for-tag`, run by the pre-push hook, and by the release workflow where it calls it) finds by it the milestone the tag ships, and refuses the tag while that milestone holds an open PR or issue.
+A release is a business milestone of the backlog (see "Feature milestones"). Choose the next version by what `main` holds since the last tag, then tag it as below; the tag publishes the release.
 
 ### Minor/Major release (e.g. 1.2.0, 2.0.0)
 
@@ -139,8 +160,3 @@ Work goes in the theme milestone. When the theme's work in this repository is do
 - **Branch name must match tag version**: `release/1.2.0` → `v1.2.0`, `v1.2.1`, etc.
 - **Never delete a release tag** after the registry deployment starts — creates stuck deployments
 - **Never reuse a version number** — most package registries reject duplicates permanently
-- **Before tagging**: every PR merged since the previous tag must be assigned to a milestone; every issue in the theme's milestone whose fix is on `main` must be closed
-
-<!-- The issue↔PR↔milestone contract above is enforced mechanically by         -->
-<!-- scripts/check-linkage.sh + the .claude/hooks/linkage-guard.sh PreToolUse   -->
-<!-- hook (gates release tagging only; normal push/PR/merge untouched).         -->

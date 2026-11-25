@@ -1,6 +1,6 @@
 # spec-kit-galaxio-bootstrap — Agent Guide
 
-Copier template that stamps Galaxio's standard dev process — spec-kit, the issue↔PR↔milestone linkage gate, and a stack-agnostic AGENTS.md/CLAUDE.md — into any new project.
+Copier template that stamps Galaxio's standard dev process — spec-kit and a stack-agnostic AGENTS.md/CLAUDE.md — into any new project.
 
 > The sections above the `---` are **project-specific** — fill them in for each new
 > project. Everything below the `---` is the **stack-agnostic development process**
@@ -9,8 +9,7 @@ Copier template that stamps Galaxio's standard dev process — spec-kit, the iss
 ## Role
 
 Maintainer of a stack-agnostic Copier project template. Prefer minimal, reversible
-changes; keep generated output stable across every stack; never re-implement the
-linkage-gate scripts — they are copied verbatim — and never edit the Spec Kit kit in `template/` by hand:
+changes; keep generated output stable across every stack; never edit the Spec Kit kit in `template/` by hand:
 `scripts/build-speckit-kit.sh` generates it.
 
 **Constitution:** the principles of this repository are in `.specify/memory/constitution.md`; where they conflict with this file, the constitution wins.
@@ -23,8 +22,8 @@ Copier (Jinja2 templates) + bash. No compiled artifact — the deliverable is
 ## Commands
 
 ```bash
-# lint    bash -n setup-speckit.sh bootstrap.sh scripts/check-linkage.sh scripts/adopt.sh scripts/build-speckit-kit.sh template/scripts/check-speckit.sh template/scripts/release-phase.sh .claude/hooks/linkage-guard.sh .githooks/pre-push .githooks/post-checkout
-# test    rc=0; for t in .claude/hooks/*_test.sh .githooks/*_test.sh scripts/*_test.sh template/scripts/check-speckit_test.sh template/scripts/release-phase_test.sh; do bash "$t" || rc=1; done; [ "$rc" = 0 ]
+# lint    bash -n setup-speckit.sh bootstrap.sh scripts/adopt.sh scripts/build-speckit-kit.sh template/scripts/check-speckit.sh template/scripts/release-phase.sh .githooks/post-checkout
+# test    rc=0; for t in .githooks/*_test.sh scripts/*_test.sh template/scripts/check-speckit_test.sh template/scripts/release-phase_test.sh; do bash "$t" || rc=1; done; [ "$rc" = 0 ]
 # smoke   copier copy --trust --pretend --defaults --data project_name=X --data org_repo=o/r . /tmp/out
 # update  copier update --trust          # run inside a generated project
 # speckit scripts/build-speckit-kit.sh [--check]   # regenerate the kit in template/ (Spec Kit 1.2.2, network); --check fails when it is stale
@@ -37,21 +36,19 @@ Copier (Jinja2 templates) + bash. No compiled artifact — the deliverable is
      anything discoverable by looking; an exhaustive tree is noise and rots fast. -->
 - `copier.yml` — questions, stack-driven Jinja defaults, post-gen tasks
 - `template/` — render root (`_subdirectory`); `.jinja` files + verbatim scripts/hooks + per-stack stubs
-- `scripts/check-linkage.sh`, `.claude/hooks/linkage-guard.sh`, `.githooks/pre-push`, `.githooks/post-checkout` — the verbatim sources
+- `.githooks/post-checkout` — the verbatim source of the worktree hook
 - `setup-speckit.sh` — installs Spec Kit for Claude Code and Codex; run by `scripts/build-speckit-kit.sh`, not copied into projects
 - `scripts/build-speckit-kit.sh` — generates the kit in `template/` (`.claude/skills`, `.agents/skills`, `.specify/`, `.specify/speckit-kit.sha256`)
 - `template/scripts/check-speckit.sh` — compares a project's kit with the manifest
 - `template/scripts/release-phase.sh` + `template/.github/workflows/release-build.yml` — the phases `prepare` (cut `release/X.Y.0` from `main`, check it) and `publish` (tag its checked head; `main` untouched) of trunk-based releases; tested by `template/scripts/release-phase_test.sh`
 - `scripts/adopt.sh` — brings the process into an existing repository without replacing its files (not copied into projects)
-- `hooks/` — what `bootstrap.sh` copies; keep it byte-identical to `.claude/hooks/` and `.githooks/`
+- `hooks/` — what `bootstrap.sh` copies; keep it byte-identical to `.githooks/`
 - `README.md` — Copier usage + spec-kit component table + gotchas
 
 ## Architecture
 
 `copier.yml` defines the questions and Jinja defaults; `_subdirectory: template` is the
-render root. AGENTS.md/CLAUDE.md/.gitignore are templated; the linkage gate
-(`scripts/check-linkage.sh` + `.claude/hooks/linkage-guard.sh`) are copied byte-for-byte —
-never re-implemented. The Spec Kit kit is generated, once, by `scripts/build-speckit-kit.sh` and shipped in `template/`,
+render root. AGENTS.md/CLAUDE.md/.gitignore are templated. The Spec Kit kit is generated, once, by `scripts/build-speckit-kit.sh` and shipped in `template/`,
 so that every project holds the same skills; CI fails when `template/` is not what the pinned CLI generates. `.copier-answers.yml` records the
 answers so `copier update` can re-apply later template changes without clobbering edits.
 
@@ -77,25 +74,21 @@ No unit tests. Validation = generate across every stack and assert no stray `{{ 
 
 ## Milestones (ALWAYS)
 
-Every piece of work is tied to a milestone. No exceptions unless explicitly told otherwise.
+A product repository has no milestones: a release is a business milestone of `galax-io/galaxio-sdlc-backlog` (see "Feature milestones"), and a PR here carries none.
 
-- **Every PR** must be assigned to the active milestone before merging. No milestone = do not merge.
-- **Issues are for important tasks**, not technical ones. A PR that completes one writes `Closes owner/repo#N` (the issue closes when the PR lands on `main`); one PR of several writes `Part of owner/repo#N`. A linked issue carries the PR's milestone. A technical PR (sync, pins, docs, CI) needs no issue: its commit already records it.
-- **Spec work** (`specs/BCKLG-<N>-*/`) belongs to the milestone that owns the spec. Link the spec PR to the milestone immediately when creating it.
-- **Active milestone** = the lowest-numbered open milestone that matches the current spec/plan. Check `gh api repos/galax-io/spec-kit-galaxio-bootstrap/milestones` if unsure.
+- **Issues are for important tasks**, not technical ones. A PR that completes one writes `Closes owner/repo#N` (the issue closes when the PR lands on `main`); one PR of several writes `Part of owner/repo#N`. A technical PR (sync, pins, docs, CI) needs no issue: its commit already records it.
+- **Spec work** (`specs/BCKLG-<N>-*/`) lives in the backlog and travels in the feature's backlog PR together with its work, never in a PR of its own.
 
 ## Feature milestones (ALWAYS)
 
-A feature is an issue in `galax-io/galaxio-sdlc-backlog`. It belongs to exactly one backlog milestone whose description has the line `Release: business`. Backlog milestones without that line (the backlog's own tooling and documents) are not releases and follow "Milestones" above.
+A feature is an issue in `galax-io/galaxio-sdlc-backlog`. It belongs to exactly one backlog milestone whose description has the line `Release: business`: that milestone is its release.
 
-- **Feature issue.** Lists the work in every repository it touches as a checklist, one line per issue or PR: `- [ ] galax-io/<repo>#<N> → <theme milestone>`. A line is checked when that work is merged; the release of the business milestone checks that the repository has shipped that theme, so its tag exists.
-- **Repository work.** Every issue and PR of a feature carries its repository's theme milestone and writes `Part of galax-io/galaxio-sdlc-backlog#<feature>`. A theme milestone has the title of the feature's business milestone (`M1 — first run`) and is created in the repository when the theme's first work reaches it. It is not a version: no milestone is named after a version. The version is a tag, chosen when the repository ships the theme, as under "Release Process". `scripts/check-linkage.sh` skips the same-milestone rule for a link to a feature; the PR still needs its own milestone.
-- **Every PR links a feature.** No PR of a product repository merges without `Part of galax-io/galaxio-sdlc-backlog#<feature>` (or a closing link to a feature); `scripts/check-linkage.sh --pr` fails it. A bot's PR (a bot author, or a `dependabot/` or `update/` branch) and the backlog's own PRs are exempt. The backlog is private, so the CI job reads it with `BACKLOG_READ_TOKEN`, a read-only token for that repository (Issues and Metadata). It is set as an organization secret, which public repositories read, and as a secret of its own in each private repository that runs the gate, because on the free plan an organization secret does not reach a private one (the backlog's `scripts/set-backlog-token.sh` sets those); without it the gate fails and says it cannot read the backlog. A technical PR with no feature of its own may skip this check with the maintainer's agreement: a line `No feature: <why, and who agreed>` of its own in its description, at least ten characters long, which the gate prints in its log. A milestone gets no standing feature of its own any more; the ones that exist stay until their release.
-- **Work enters through the backlog.** A bug, an audit finding or a request is not worked on until it belongs to a feature: grouped into one or given one. An issue from outside stays in its repository, which is public, and carries the label `status:needs-feature` until it is linked to a feature in the backlog.
-- **Feature done.** The feature's documents PR in the backlog (its spec, plan, tasks and everything else the task leaves there) writes `Closes galax-io/galaxio-sdlc-backlog#<feature>` and is merged last, once every other line of the checklist is checked: its merge closes the feature, and GitHub shows it in the feature's Development. The work's PRs in the other repositories write `Part of`.
-- **Release.** When every feature of a business milestone is closed, close the milestone and publish a GitHub Release in `galax-io/galaxio-sdlc-backlog` that lists each feature with the repository versions that carry it. Name the release and its tag by the milestone's id, the title up to its first em dash, lowercased (`M1 — first run` → `m1`).
-- **Published releases are not edited.** A revert after the release is a new feature in the next business milestone.
-- **Never** close a business milestone with an open feature, release a feature whose repository version is not tagged, or leave a repository version out of the release text.
+- **Trunk-based.** `main` is the trunk: every PR, a feature's, a fix, a bot's or CI, is opened into `main` from a short-lived branch. Unfinished behaviour is not merged or stays behind a flag. The PR of a feature writes `Part of galax-io/galaxio-sdlc-backlog#<feature>`, which records it in the feature.
+- **Work enters through the backlog.** A bug, an audit finding or a request is not worked on until it belongs to a feature: grouped into one or given one. An issue from outside stays in its repository and carries the label `status:needs-feature` until it is linked to a feature in the backlog.
+- **Release.** The backlog's `scripts/release-build.sh <release>` gives this repository the next minor, `vX.Y.0`, when `main` has commits after its last tag, and runs the phase `prepare` in every such repository: `release/X.Y.0` is cut from `main` and this repository's checks run on it. Only when every repository is green does it run `publish` everywhere: the tag is set on the head `prepare` checked and the GitHub Release is made; `main` is not touched and the branch stays. A red check in one repository publishes nothing anywhere. The backlog's release of the milestone lists each repository's version and links its GitHub Release.
+- **Patch.** A fix of a released version is a PR into `main` first, then `git cherry-pick -x` onto `release/X.Y.0` by a PR into that branch; `prepare` and `publish` with `vX.Y.Z` tag it there. A release branch is never merged into `main`.
+- **Feature done.** The feature's documents PR in the backlog writes `Closes galax-io/galaxio-sdlc-backlog#<feature>` and is merged last; the work's PRs here write `Part of`.
+- **Published releases are not edited.** A fix after the release is a patch on the release branch or the next release; a tag is never moved.
 
 ## Labels (ALWAYS)
 
@@ -117,12 +110,12 @@ A task of the backlog has one number across the organization: `BCKLG-<N>`, where
 - **Branch.** A task's documents branch in the backlog is `spec/BCKLG-<N>-<name>`, whether made by hand or by the engine, which works on it and opens no other branch in the backlog; the engine's run is `BCKLG-<N>-<time>`, and its branches in the code repositories are `sdlc/BCKLG-<N>-<time>`.
 - **Commit.** A commit that does a task's work carries the trailer `Refs: BCKLG-<N>`; its subject stays a Conventional Commit.
 - **PR.** Its body carries the line `Refs: BCKLG-<N>` beside `Part of galax-io/galaxio-sdlc-backlog#<N>`, or beside `Closes galax-io/galaxio-sdlc-backlog#<N>` in the task's documents PR.
-- **Checked.** `scripts/check-linkage.sh --pr` fails a PR of a feature without its number, a spec directory it adds that is not named by a task, and a spec, plan or tasks without the tasks line; `--specs` checks every spec of a checkout.
+- **Checked.** The backlog's `scripts/check-linkage.sh --specs` checks every spec there.
 
 ## Commits & PRs
 
-- **Spec-first.** `specs/BCKLG-<N>-<feature>/` artifacts → `docs(speckit): add BCKLG-<N>-<feature> spec/plan/tasks` commit BEFORE any `feat`/`fix`. Never folded into implementation.
-- **1 issue = 1 commit.** Each tracked GitHub issue maps to one semantic commit (`feat(scope): … (#NNN)`), green on its own (`bash -n setup-speckit.sh scripts/check-linkage.sh .claude/hooks/linkage-guard.sh`). Docs, tweaks, and out-of-scope improvements go in separate PRs — never mixed with issue commits.
+- **Spec-first.** `specs/BCKLG-<N>-<feature>/` artifacts → `docs(speckit): add BCKLG-<N>-<feature> spec/plan/tasks` as the first commit of the backlog PR that carries the feature's work, BEFORE any `feat`/`fix`. Never folded into an implementation commit, never a spec-only PR; that PR merges together with the feature's PRs in the other repositories (backlog constitution, Principle II).
+- **1 issue = 1 commit.** Each tracked GitHub issue maps to one semantic commit (`feat(scope): … (#NNN)`), green on its own (`bash -n setup-speckit.sh bootstrap.sh scripts/adopt.sh scripts/build-speckit-kit.sh template/scripts/check-speckit.sh template/scripts/release-phase.sh .githooks/post-checkout`). Docs, tweaks, and out-of-scope improvements go in separate PRs — never mixed with issue commits.
 - **Intent, not path.** No add-then-remove within a PR. Squash churn before review.
 - **One PR per repository part of a feature, a commit per concern.** What its checks find on the way (a dependency, a setting, a rule's findings) is a commit of that PR, not a PR of its own; docs and README that are not the feature's are another PR. Stack a second PR only when the first cannot merge without it; update with `--force-with-lease`.
 - **Idiomatic code.** Follow the language's idioms and the conventions already in the codebase; no control-flow-by-exception, no dead/duplicated code.
@@ -164,7 +157,7 @@ Route work by the reasoning it needs, not by habit; parallelize only where agent
 
 Trunk-based with release branches. Trunk is `main`; `release/*` branches are cut from `main` for stabilization. Pushing a `vX.Y.Z` tag on `main` or a `release/*` branch triggers the release workflow (git tag vX.Y.Z, consumed via copier copy/update gh:galax-io/spec-kit-galaxio-bootstrap) and creates a GitHub Release (git-cliff).
 
-Work goes in the theme milestone. When the theme's work in this repository is done, choose the next version by what it contains, write the line `Released: vX.Y.Z` in the theme milestone's description, then tag it as below; the tag publishes the release, and once the release is out, close the milestone. The line comes before the tag: the check before a tag (`scripts/check-linkage.sh --for-tag`, run by the pre-push hook, and by the release workflow where it calls it) finds by it the milestone the tag ships, and refuses the tag while that milestone holds an open PR or issue.
+A release is a business milestone of the backlog (see "Feature milestones"). Choose the next version by what `main` holds since the last tag, then tag it as below; the tag publishes the release.
 
 ### Minor/Major release (e.g. 1.2.0, 2.0.0)
 
@@ -187,8 +180,3 @@ Work goes in the theme milestone. When the theme's work in this repository is do
 - **Branch name must match tag version**: `release/1.2.0` → `v1.2.0`, `v1.2.1`, etc.
 - **Never delete a release tag** after the registry deployment starts — creates stuck deployments
 - **Never reuse a version number** — most package registries reject duplicates permanently
-- **Before tagging**: every PR merged since the previous tag must be assigned to a milestone; every issue in the theme's milestone whose fix is on `main` must be closed
-
-<!-- The issue↔PR↔milestone contract above is enforced mechanically by         -->
-<!-- scripts/check-linkage.sh + the .claude/hooks/linkage-guard.sh PreToolUse   -->
-<!-- hook (gates release tagging only; normal push/PR/merge untouched).         -->
