@@ -165,6 +165,55 @@ for skill in "${LIGHT_SKILLS[@]}"; do pin_model "$skill" "$LIGHT_MODEL"; done
 echo "  ✓  deep=$DEEP_MODEL (${#DEEP_SKILLS[@]} skills), light=$LIGHT_MODEL (${#LIGHT_SKILLS[@]} skills)"
 
 echo
+echo "==> Hooks off in an automated run (SPECKIT_HOOKS=off)"
+# TEMPORARY: removed by galax-io/galaxio-sdlc-backlog#1043, once the repository is prepared for an
+# autonomous run another way.
+# The kit is the same in every repository, and a person runs its git, worktree and agent-context hooks by
+# hand. An automated run sets SPECKIT_HOOKS=off in its environment (the engine's sandbox adapter, in
+# galaxio-sdlc-workflow): it keeps its own branch, commits and working copy, so every script a hook runs
+# then changes nothing and exits 0. Unset, the scripts are as the extensions ship them. The guard is the
+# first statement after the shebang; re-running is idempotent. The PowerShell scripts are left as they
+# ship: three open with a script-level param() block, before which no statement may stand, and an
+# automated run uses the sh scripts (the kit is installed with --script sh).
+BASH_HOOKS=(git/scripts/bash/create-new-feature-branch.sh git/scripts/bash/auto-commit.sh
+  git/scripts/bash/initialize-repo.sh worktrees/scripts/bash/create-worktree.sh
+  agent-context/scripts/bash/update-agent-context.sh)
+SKIP_TEXT='skipped: SPECKIT_HOOKS=off, the automated run keeps its own branch, commits and working copy'
+GUARD_FAILED=()
+guard_hook() {   # file  guard-line: the guard is line 2, a guard of an earlier run is replaced
+  local file=".specify/extensions/$1" tmp
+  [[ -f "$file" ]] || { echo "  ✗  $1 not found"; GUARD_FAILED+=("guard $1"); return 0; }
+  [[ "$(sed -n 2p "$file")" == "$2" ]] && return 0
+  tmp="$(mktemp "$file.XXXXXX")"
+  # cp -p first, so the script keeps its mode; ENVIRON, so awk reads the guard without escapes.
+  if cp -p "$file" "$tmp" \
+     && GUARD="$2" awk 'NR == 1 { print; print ENVIRON["GUARD"]; next } NR == 2 && /SPECKIT_HOOKS/ { next } { print }' "$file" > "$tmp" \
+     && mv -f "$tmp" "$file"; then
+    return 0
+  fi
+  rm -f "$tmp"; echo "  ✗  $1: the guard was not written"; GUARD_FAILED+=("guard $1")
+}
+for hook in "${BASH_HOOKS[@]}"; do
+  guard_hook "$hook" "if [ \"\${SPECKIT_HOOKS:-}\" = off ]; then echo '$SKIP_TEXT'; exit 0; fi"
+done
+# The worktree command runs its script by "$(dirname "$0")/../scripts/…", which no shell of an agent
+# resolves: the model then makes the worktree itself, by the command's fallback, past the guard. The
+# script is named by its path in the repository instead.
+for doc in .specify/extensions/worktrees/commands/speckit.worktrees.create.md \
+           .claude/skills/speckit-worktrees-create/SKILL.md .agents/skills/speckit-worktrees-create/SKILL.md; do
+  [[ -f "$doc" ]] || { echo "  ✗  $doc not found"; GUARD_FAILED+=("path $doc"); continue; }
+  sed 's#bash "$(dirname "$0")/../scripts/bash/create-worktree.sh"#bash .specify/extensions/worktrees/scripts/bash/create-worktree.sh#' "$doc" > "$doc.new" \
+    && cat "$doc.new" > "$doc" && rm -f "$doc.new"
+  grep -q 'bash \.specify/extensions/worktrees/scripts/bash/create-worktree\.sh' "$doc" \
+    || { echo "  ✗  $doc: the script's path was not set"; GUARD_FAILED+=("path $doc"); }
+done
+if [[ ${#GUARD_FAILED[@]} -eq 0 ]]; then
+  echo "  ✓  ${#BASH_HOOKS[@]} hook scripts guarded; the worktree command runs its script by its path"
+else
+  FAILED+=("${GUARD_FAILED[@]}")
+fi
+
+echo
 if [[ ${#FAILED[@]} -gt 0 ]]; then
   echo "Done with FAILURES: ${FAILED[*]}"
   exit 1

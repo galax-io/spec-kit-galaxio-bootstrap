@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+if [ "${SPECKIT_HOOKS:-}" = off ]; then echo 'skipped: SPECKIT_HOOKS=off, the automated run keeps its own branch, commits and working copy'; exit 0; fi
 # update-agent-context.sh
 #
 # Refresh the managed Spec Kit section in the coding agent's context file(s)

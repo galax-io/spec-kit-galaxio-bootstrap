@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+if [ "${SPECKIT_HOOKS:-}" = off ]; then echo 'skipped: SPECKIT_HOOKS=off, the automated run keeps its own branch, commits and working copy'; exit 0; fi
 # Git extension: create-new-feature-branch.sh
 # Creates a git feature branch only. The feature directory and spec file
 # are created by the core create-new-feature.sh script.
