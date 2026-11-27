@@ -5,6 +5,7 @@ compatibility: Requires spec-kit project structure with .specify/ directory
 metadata:
   author: dango85
   source: worktrees:commands/speckit.worktrees.create.md
+  version: 1.3.2
 ---
 
 # Create Worktree

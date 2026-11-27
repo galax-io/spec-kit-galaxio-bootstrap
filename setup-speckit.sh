@@ -20,8 +20,8 @@ set -euo pipefail
 command -v specify >/dev/null 2>&1 || {
   echo "error: 'specify' CLI not found on PATH. Install spec-kit first." >&2; exit 2; }
 
-# Codex alongside Claude Code needs `specify integration use`, which 1.2.2 has.
-MIN_SPECKIT=1.2.2
+# The version the kit is built with (KIT_VERSION of scripts/build-speckit-kit.sh).
+MIN_SPECKIT=1.4.5
 have=$(specify version 2>/dev/null | sed -n 's/.*CLI Version[^0-9]*\([0-9][0-9.]*\).*/\1/p')
 [[ -n "$have" && "$(printf '%s\n' "$MIN_SPECKIT" "$have" | sort -V | head -1)" == "$MIN_SPECKIT" ]] || {
   echo "error: spec-kit $MIN_SPECKIT or later is required (found ${have:-unknown}); run 'specify self upgrade'." >&2; exit 2; }
@@ -146,7 +146,7 @@ DEEP_MODEL="${SPECKIT_DEEP_MODEL:-opus}"
 LIGHT_MODEL="${SPECKIT_LIGHT_MODEL:-sonnet}"
 DEEP_SKILLS=(specify clarify plan analyze checklist constitution converge bug-assess
   harness-explore harness-verify spectest-gaps spectest-plan)
-LIGHT_SKILLS=(tasks taskstoissues agent-context-update git-commit git-feature git-initialize
+LIGHT_SKILLS=(tasks agent-context-update git-commit git-feature git-initialize
   git-remote git-validate changelog-diff changelog-generate changelog-notify changelog-release
   worktrees-create worktrees-list worktrees-clean harness-init harness-status harness-report
   spectest-coverage)

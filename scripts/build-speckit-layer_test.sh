@@ -62,7 +62,7 @@ echo "build: the commands the preset wraps (backlog#456)"
 # A checkout of its own: the script, a kit of two commands, presets, and a stand-in for the CLI on PATH that
 # does what the CLI does to a wrapped command: its own frontmatter and heading, the preset's text around the kit's body.
 up="$tmp/build"; mkdir -p "$up/scripts" "$up/bin" "$up/template/.specify/memory"
-cp "$script" "$up/scripts/"; echo 'KIT_VERSION=1.2.2' > "$up/scripts/build-speckit-kit.sh"; : > "$up/template/.specify/memory/constitution.md"
+cp "$script" "$up/scripts/"; echo 'KIT_VERSION=1.4.5' > "$up/scripts/build-speckit-kit.sh"; : > "$up/template/.specify/memory/constitution.md"
 for c in specify implement; do
   for d in .claude .agents; do
     mkdir -p "$up/template/$d/skills/speckit-$c"
@@ -72,7 +72,7 @@ done
 cat > "$up/bin/specify" <<'EOF'
 #!/usr/bin/env bash
 case "$1" in
-  version) echo "CLI Version 1.2.2" ;;
+  version) echo "CLI Version 1.4.5" ;;
   integration) echo "$3" > .integration ;;
   preset)
     d=.claude; [ "$(cat .integration)" = codex ] && d=.agents

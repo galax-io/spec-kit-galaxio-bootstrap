@@ -101,7 +101,7 @@ scripts/
   release-phase.sh     # the phases prepare / publish of .github/workflows/release-build.yml
   check-speckit.sh     # fails when the Spec Kit kit differs from the template's
 .claude/skills/speckit-*    # the Spec Kit kit: skills of Claude Code ...
-.agents/skills/speckit-*    # ... and of Codex, 35 each, identical in every project
+.agents/skills/speckit-*    # ... and of Codex, 34 each, identical in every project
 .specify/              # the kit's scripts, templates, extensions, presets, hooks; speckit-kit.sha256 lists every file
 .specify/memory/       # the project's own constitution (starting point only; never replaced)
 .github/workflows/speckit.yml   # runs check-speckit.sh on every pull request
@@ -139,7 +139,7 @@ Codex reads no `model:` line; its tier comes from how Codex is run:
 | tier | skills |
 |---|---|
 | deep (`SPECKIT_DEEP_MODEL`, default `opus`) | specify, clarify, plan, analyze, checklist, constitution, converge, bug-assess, harness-explore, harness-verify, spectest-gaps, spectest-plan |
-| light (`SPECKIT_LIGHT_MODEL`, default `sonnet`) | tasks, taskstoissues, agent-context-update, git-*, changelog-*, worktrees-*, harness-init/status/report, spectest-coverage |
+| light (`SPECKIT_LIGHT_MODEL`, default `sonnet`) | tasks, agent-context-update, git-*, changelog-*, worktrees-*, harness-init/status/report, spectest-coverage |
 | unpinned (session model) | implement, bug-fix, bug-test, spectest-generate — they dispatch per-task sub-agents by `[tier:*]` |
 
 The pins are part of the generated kit, so a project picks tier changes up with
@@ -148,7 +148,7 @@ The pins are part of the generated kit, so a project picks tier changes up with
 ## The Spec Kit kit
 
 Every repository holds the same Spec Kit, byte for byte: the skills of Claude Code
-(`.claude/skills/speckit-*`) and Codex (`.agents/skills/speckit-*`), 35 each, and the files
+(`.claude/skills/speckit-*`) and Codex (`.agents/skills/speckit-*`), 34 each, and the files
 they run on under `.specify/`. It is **generated once, here**, by the pinned Spec Kit CLI
 (`KIT_VERSION` in `scripts/build-speckit-kit.sh`), committed to `template/`, and listed with
 its hashes in `.specify/speckit-kit.sha256`. Nothing runs `specify` in a project.
