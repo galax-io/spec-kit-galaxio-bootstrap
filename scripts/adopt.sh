@@ -150,7 +150,14 @@ if [ "$SPECKIT" = 1 ]; then
     elif [ ! -e "$TARGET/$path" ]; then
       added=$((added + 1))
     elif cmp -s "$src" "$TARGET/$path"; then
-      same=$((same + 1)); return 0
+      # The bytes are the template's; a script the kit holds as executable is made so.
+      if [ -x "$src" ] && [ ! -x "$TARGET/$path" ]; then
+        updated=$((updated + 1)); echo "updated: $path (now executable)"
+        [ "$DRY" = 1 ] || chmod +x "$TARGET/$path"
+      else
+        same=$((same + 1))
+      fi
+      return 0
     else
       updated=$((updated + 1)); echo "updated: $path"
     fi

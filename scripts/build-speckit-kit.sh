@@ -20,6 +20,9 @@
 # .specify/memory/ (the constitution) is the repository's own and is not listed;
 # the template carries its starting point, which copier and adopt.sh never replace.
 #
+# The skills run the kit's scripts by their path, so every shell script a Spec Kit install makes
+# executable is executable here, and --check fails unless git holds it as 100755.
+#
 # Usage:
 #   scripts/build-speckit-kit.sh           # rewrite the kit in template/
 #   scripts/build-speckit-kit.sh --check   # fail when template/ is not what the CLI generates
@@ -80,6 +83,17 @@ list="$work/.kit-files"
   | LC_ALL=C sort ) > "$list"
 tar -cf - -C "$work" -T "$list" | tar -xf - -C "$stage"
 
+# The scripts a Spec Kit install makes executable, by the CLI's own rule (ensure_executable_scripts):
+# each *.sh with a shebang under .specify/scripts and .specify/extensions. The skills run them by their
+# path, so the kit holds them executable, whatever mode a later step of the install left.
+scripts="$work/.kit-scripts"
+while IFS= read -r f; do
+  case "$f" in .specify/scripts/*.sh|.specify/extensions/*.sh) ;; *) continue ;; esac
+  [ "$(head -c 2 "$stage/$f")" = '#!' ] || continue
+  chmod +x "$stage/$f"
+  printf '%s\n' "$f"
+done < "$list" > "$scripts"
+
 # 3. The manifest: every file but the repository's own.
 ( cd "$stage" && grep -vF "$OWN" "$list" | while IFS= read -r f; do sha256 "$f"; done ) > "$stage/$MANIFEST"
 
@@ -90,6 +104,14 @@ if [ "$mode" = check ]; then
   for d in "${kit_dirs[@]}"; do
     diff -rq "$stage/$d" "$template/$d" >"$log" 2>&1 || { rc=1; head -20 "$log" >&2; }
   done
+  # diff compares bytes only; the mode a repository gets is the one git holds.
+  git -C "$template" rev-parse --is-inside-work-tree >/dev/null 2>&1 || { echo "error: $template is not in a git work tree, so the modes of its scripts cannot be checked" >&2; exit 2; }
+  while IFS= read -r f; do
+    held="$(git -C "$template" ls-files -s -- "$f" | cut -d' ' -f1)"
+    [ "$held" = 100755 ] && continue
+    rc=1
+    echo "$f is ${held:-not} in git, not 100755: git -C $template update-index --add --chmod=+x $f" >&2
+  done < "$scripts"
   [ "$rc" = 0 ] && echo "template/ holds the kit Spec Kit $KIT_VERSION generates" \
     || echo "error: template/ is not the kit Spec Kit $KIT_VERSION generates; run scripts/build-speckit-kit.sh" >&2
   exit "$rc"

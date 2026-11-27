@@ -460,6 +460,14 @@ check "kit-old: the constitution and feature.json are untouched" $([ "$(cat "$re
 check "kit-old: the constitution's marker is added when missing" $([ -f "$repo/.specify/memory/.constitution-template.json" ] && echo 0 || echo 1) "out=$out"
 check "kit-old: setup-speckit.sh is reported as obsolete and left" $([ -f "$repo/setup-speckit.sh" ] && has 'setup-speckit.sh' && has 'obsolete' && echo 0 || echo 1) "out=$out"
 
+# K2b. a script whose bytes are the template's but which lost its executable bit gets it back
+chmod -x "$repo/.specify/scripts/bash/common.sh"
+run3 --dry-run --speckit "$repo"
+check "kit-mode: --dry-run names the script and leaves its mode" $([ ! -x "$repo/.specify/scripts/bash/common.sh" ] && has 'updated: .specify/scripts/bash/common.sh (now executable)' && echo 0 || echo 1) "out=$out"
+run3 --speckit "$repo"
+check "kit-mode: the script is executable again" $([ -x "$repo/.specify/scripts/bash/common.sh" ] && has 'updated: .specify/scripts/bash/common.sh (now executable)' && echo 0 || echo 1) "out=$out"
+check "kit-mode: it counts one update and nothing else" $(has '0 added, 1 updated, 0 removed' && echo 0 || echo 1) "out=$out"
+
 # K3. running it again changes nothing
 before=$(snapshot)
 run3 --speckit "$repo"
