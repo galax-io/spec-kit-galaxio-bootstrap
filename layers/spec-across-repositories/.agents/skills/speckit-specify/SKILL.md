@@ -33,12 +33,14 @@ document for all of them. Do steps 0 to 3 first, in this session, with no other 
    its own task first. `plan.md` and `tasks.md` of the spec carry the same line.
 2. **The candidates.**
    - You are in an engine run when the file `.sdlc/run-input.json` exists in the working copy: it is the
-     run's input (`runInputVersion` 1), which the engine always writes. Read its `ecosystem` field: the
-     repositories the catalog suggests, with the chain of relations to each, and the constitutions it
-     holds. These are hints, not verdicts. With the file but no `ecosystem`, stop before writing anything
-     and say that it is missing. Without the file you are working by hand.
-   - By hand, read `catalog-info.yaml` of the repositories the task names, of those that use them
-     and of those they use, and their constitutions (`.specify/memory/constitution.md`).
+     run's input (`runInputVersion` 1), which the engine always writes. The run's repositories are the
+     entries of its `repositories` field: `name` (`<org>/<repo>`), `path`, `access` and `revision`. Read
+     their `catalog-info.yaml` and their constitutions (`.specify/memory/constitution.md`) from those paths.
+   - Candidates beyond that set come from the catalog: the repositories that use them and those they use,
+     read from `catalog-info.yaml`. These are hints, not verdicts.
+   - Without the file you are working by hand. By hand, and when the file has no `repositories`, read
+     `catalog-info.yaml` of the repositories the task names, of those that use them and of those they
+     use, and their constitutions.
 3. **A verdict for each.** Give every repository the task names, every candidate, and any other you find, a
    verdict: `затронут`, `не затронут` or `неясно`, with the reason and the evidence. The evidence is one of
    three kinds, and you say which: a reference to code (`path:line`), the chain of relations from the
@@ -406,8 +408,8 @@ Add these to the specification you wrote, in its language, keeping the sections 
      sentence each, a line break after each, no wall of text) saying what is specified and how it will work
      across the repositories, for a reader who will read nothing else.
 5. **The rules of the repositories.** Check the specification against the constitution of this repository and
-   the constitution of every repository whose verdict is `затронут` or `неясно` and of their neighbours in
-   the catalog graph (those in `ecosystem` when you have it, otherwise those you read in step 2). A conflict
-   is a critical finding in `checklists/requirements.md`: name the repository and the principle, then change
-   the specification or put the conflict to the user as a question. A constitution you do not have is
-   listed there as not checked.
+   the constitution of every repository whose verdict is `затронут` or `неясно` and of their neighbours
+   (those of the catalog graph you read in step 2). A conflict is a critical finding in
+   `checklists/requirements.md`: name the repository and the principle, then change the specification or
+   put the conflict to the user as a question. A constitution you do not have is listed there as not
+   checked.

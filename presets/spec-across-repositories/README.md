@@ -7,14 +7,15 @@ its tasks are coarse and each task is done in its own repository.
 ## `speckit.specify`
 
 An engine run is told by the file `.sdlc/run-input.json` in the working copy (the run's input, `runInputVersion` 1);
-its `ecosystem` field is the engine's record of the ecosystem. With the file but no `ecosystem` the command stops
-before writing; without the file it works by hand.
+its `repositories` field lists the run's repositories (`name`, `path`, `access`, `revision`), and the command reads
+their `catalog-info.yaml` and constitutions from those paths. Without the file it works by hand, and a file without
+that field is read the same way.
 
 **Before** the base command: the task's spec, when `specs/` has one, found by the line
 `**Задачи**: BCKLG-<N>` under its title and checked against the task instead of writing another; else the
 feature directory `specs/BCKLG-<N>-<name>` with that line, `**Tasks**:` where the files are English only
-(backlog#403); the candidate repositories (from the
-engine's `ecosystem`, or read by hand from the catalog), a verdict with evidence for each.
+(backlog#403); the candidate repositories (the run's
+set, and those the catalog relates to it), a verdict with evidence for each.
 
 **After** it, the command adds these to the spec, in its language (`commands/speckit.specify.md` is the full
 text and wins where they differ):
