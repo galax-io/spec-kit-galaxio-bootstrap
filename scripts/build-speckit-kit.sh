@@ -4,7 +4,7 @@
 #
 # The kit is what every repository of the organization gets, byte for byte: the
 # skills of Claude Code (.claude/skills) and Codex (.agents/skills), and the
-# Spec Kit files they run on (.specify/scripts, templates, extensions, presets,
+# Spec Kit files they run on (.specify/scripts, templates, extensions,
 # workflows, extensions.yml). It is generated here, once, by the pinned Spec Kit
 # CLI through setup-speckit.sh, and then reaches repositories by `copier update`
 # or `scripts/adopt.sh --speckit`. Nothing runs `specify` in a repository, so
@@ -28,7 +28,7 @@
 #   scripts/build-speckit-kit.sh --check   # fail when template/ is not what the CLI generates
 #
 # Needs the `specify` CLI at exactly KIT_VERSION, network access (extensions
-# and the preset install from GitHub) and git.
+# install from GitHub) and git.
 # Env: SPECKIT_DEEP_MODEL / SPECKIT_LIGHT_MODEL, as for setup-speckit.sh.
 
 set -euo pipefail

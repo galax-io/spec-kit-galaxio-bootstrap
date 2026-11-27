@@ -102,7 +102,7 @@ echo "    Without it .githooks/post-checkout never runs."
 [ -e "$TARGET/specs/.gitkeep" ]    || : > "$TARGET/specs/.gitkeep"
 
 if [ "$DO_SPECKIT" -eq 1 ]; then
-  echo "==> Installing spec-kit extensions/presets"
+  echo "==> Installing spec-kit extensions"
   ( cd "$TARGET" && bash setup-speckit.sh ) || echo "  ! setup-speckit reported failures (see speckit-install.log)"
 fi
 

@@ -102,7 +102,7 @@ scripts/
   check-speckit.sh     # fails when the Spec Kit kit differs from the template's
 .claude/skills/speckit-*    # the Spec Kit kit: skills of Claude Code ...
 .agents/skills/speckit-*    # ... and of Codex, 34 each, identical in every project
-.specify/              # the kit's scripts, templates, extensions, presets, hooks; speckit-kit.sha256 lists every file
+.specify/              # the kit's scripts, templates, extensions, hooks; speckit-kit.sha256 lists every file
 .specify/memory/       # the project's own constitution (starting point only; never replaced)
 .github/workflows/speckit.yml   # runs check-speckit.sh on every pull request
 specs/
@@ -199,7 +199,6 @@ ignores them in projects. `.specify/memory/` (the constitution) is the project's
 | extension | `harness`             | `formin/spec-kit-harness` v1.0.0                  | research/verification harness |
 | extension | `spectest`            | `jigarkhwar/spec-kit-spectest` v1.1.0    | test generation (fork — see below) |
 | extension | `changelog`           | `jigarkhwar/spec-kit-changelog` v1.2.0   | changelog/release notes (fork — see below) |
-| preset    | `claude-ask-questions`| `0xrafasec/spec-kit-preset-claude-ask-questions`  | native AskUserQuestion picker for clarify/checklist |
 
 **Maintained in our forks:** the original `Quratulain-bilal` `spectest`/`changelog`
 extensions were broken — their `v1.0.0` manifests fail `specify`'s validator
@@ -216,14 +215,16 @@ template, not a temporary patch (pin each fork to a working tag, bump on re-tag)
 - **No `--force` for normal installs.** `--force` reinstalls an extension *over* an
   existing (possibly customized) copy and overwrites its files. The installer is
   additive by default — it skips what's already installed.
-- **`specify preset add` has no `--force`** — only `--from` / `--dev` / `--priority`.
+- **The kit holds no preset.** Once `.specify/presets/<id>/preset.yml` exists, Spec Kit's template
+  resolver needs Python with PyYAML, and `specify`, `plan` and `tasks` stop without it, even for a
+  preset that only replaces commands. `scripts/kit-templates_test.sh` keeps the kit free of one.
 - **Community installs are interactive.** `specify ... --from <url>` prompts
   `Untrusted Source — Continue? [y/N]`; non-interactively it aborts. `setup-speckit.sh`
   auto-answers `y`. Running an agent that does this may be blocked by a safety
   classifier when the external URL/repo originates from tool output rather than your
   own message — run the script yourself, or grant a Bash permission rule.
-- **Claude Code and Codex both get every skill.** Spec Kit writes extension and
-  preset skills into the default integration only, so `setup-speckit.sh` makes Codex the
+- **Claude Code and Codex both get every skill.** Spec Kit writes extension
+  skills into the default integration only, so `setup-speckit.sh` makes Codex the
   default, then Claude Code, and pins the models last. It runs only inside
   `scripts/build-speckit-kit.sh` (and the legacy `bootstrap.sh --speckit`).
 - **One failed install must not abort the rest** — the installer collects failures
