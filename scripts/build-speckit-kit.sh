@@ -31,7 +31,7 @@
 set -euo pipefail
 
 # The one place the version of Spec Kit is chosen for the whole organization.
-KIT_VERSION=1.2.2
+KIT_VERSION=1.4.5
 
 here="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 root="$(dirname "$here")"
