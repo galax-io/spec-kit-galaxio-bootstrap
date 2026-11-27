@@ -43,8 +43,8 @@ you trust what you remember of a change.
    others. Each file keeps the tasks line of step 1, and a `tasks.md` of several repositories names each task's
    repository as `[repo:<name>]`. In a run, the first line of each Markdown file the ladder writes is
    `<!-- generated: run <runId> -->`, so that the stage's gate does not judge it as the maintainer's input.
-   If the wrapped specify stops (in a run, for one, when the input has no `ecosystem`), stop too: the task is
-   `[!] — <what specify said>` (step 6), and no other file is written.
+   If the wrapped specify stops, stop too: the task is `[!] — <what specify said>` (step 6), and no other
+   file is written.
 3. **The working copies.**
    - In a run, `workingCopies` maps each repository the work may change (`galax-io/<name>`) to the path of its
      working copy. The task's edits go only there.

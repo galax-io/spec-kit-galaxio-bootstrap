@@ -169,17 +169,31 @@ has "backlog#403 the «Задачи» line under the title" '**Задачи**: B
 has "backlog#403 its English spelling" '**Tasks**: BCKLG-<N>'
 has "backlog#403 the task's spec is looked for and re-checked first" 'Look for the spec.md under `specs/` whose line'
 has "FR-002 SPECIFY_FEATURE_DIRECTORY is set" 'SPECIFY_FEATURE_DIRECTORY'
-has "FR-003 the engine's information" '`ecosystem`'
 has "FR-003 an engine run is told by the file" '`.sdlc/run-input.json`'
 has "FR-003 the file is the run's input, version 1" '`runInputVersion` 1'
-has "FR-003 the record is the file's field" 'its `ecosystem` field'
 has "FR-003 without the file it is by hand" 'Without the file you are working by hand'
-has "FR-003 the file without the record stops" 'the file but no `ecosystem`, stop before writing anything'
 grep -qF '`.sdlc/run-input.json`' "$root/presets/spec-across-repositories/README.md"; check "FR-003 the README names the file" $? ""
 grep -qF 'galaxio.io/uses.galaxio-sdlc-orchestrator' "$root/catalog-info.yaml"; check "FR-003 the catalog declares the contract with the engine" $? ""
 grep -q 'version: "0.6.0"' "$root/presets/spec-across-repositories/preset.yml"; check "the preset is 0.6.0" $? ""
-has "FR-003 it stops when the information is missing" 'stop before writing'
 has "FR-003 by hand it reads the catalog" 'catalog-info.yaml'
+# The engine writes the run's set, `repositories`, and no record of the ecosystem (BCKLG-999, BCKLG-1062):
+# checked on the skills a repository gets.
+for d in .claude .agents; do
+  skill="$root/layers/spec-across-repositories/$d/skills/speckit-specify/SKILL.md"
+  text="$(tr -s '[:space:]' ' ' < "$skill")"
+  says() { [[ "$text" == *"$2"* ]]; check "BCKLG-1067 the built $d specify skill $1" $? "missing: $2"; }
+  ! grep -qF '`ecosystem`' "$skill"; check "BCKLG-1067 the built $d specify skill asks for no ecosystem" $? "$(grep -nF '`ecosystem`' "$skill")"
+  ! grep -qF 'stop before writing' "$skill"; check "BCKLG-1067 the built $d specify skill stops for no missing field" $? "$(grep -nF 'stop before writing' "$skill")"
+  says "reads the run input file" '`.sdlc/run-input.json`'
+  says "takes the run's set from repositories" "The run's repositories are the entries of its \`repositories\` field"
+  says "names what an entry holds" '`name` (`<org>/<repo>`), `path`, `access` and `revision`'
+  says "reads the set from its paths" 'their constitutions (`.specify/memory/constitution.md`) from those paths'
+  says "takes more candidates from the catalog" 'Candidates beyond that set come from the catalog'
+  says "takes them as hints" 'These are hints, not verdicts'
+  says "reads as by hand without the field" 'By hand, and when the file has no `repositories`'
+  says "checks the neighbours it read" 'those of the catalog graph you read in step 2'
+done
+! grep -rqF '`ecosystem`' "$root/presets/spec-across-repositories"; check "BCKLG-1067 no text of the preset names ecosystem" $? "$(grep -rnF '`ecosystem`' "$root/presets/spec-across-repositories" | cut -c1-120)"
 has "FR-004 the three verdicts" '`затронут`'
 has "FR-004 unclear stays" '`неясно`'
 has "FR-004 no other agent" 'no other agent'
@@ -194,7 +208,7 @@ has "FR-009 the summary" '## Что специфицируется и как э�
 has "readable: the statement is three to five short bullets" 'three to five short bullet lines'
 has "readable: a not-affected row stays one short line" 'one short line'
 has "readable: no reason is repeated" 'and say a reason shared by'
-has "FR-010 the neighbours are checked" 'neighbours in'
+has "FR-010 the neighbours are checked" 'of their neighbours'
 has "FR-010 a conflict is critical" 'critical finding'
 has "FR-011 one repository has one row" 'one row'
 ! grep -qiE 'start (an|another|a new) agent|spawn|subagent' "$cmd"; check "FR-004 the text starts no agent" $? ""
