@@ -1,5 +1,8 @@
 #!/usr/bin/env bash
-# Install spec-kit extensions and presets for a project.
+# Install spec-kit extensions for a project.
+#
+# No preset: once a preset's manifest is under .specify/presets/, Spec Kit's template resolver needs
+# Python with PyYAML, and specify, plan and tasks stop without it (scripts/kit-templates_test.sh).
 #
 # Native extensions (agent-context, bug, git) install by name from the catalog.
 # Community ones live in a discovery-only catalog (install_allowed: false), so
@@ -11,7 +14,7 @@
 # Usage:
 #   bash setup-speckit.sh            # additive: install what's missing, skip existing
 #   bash setup-speckit.sh --force    # reinstall extensions over existing (DANGER:
-#                                     # overwrites customized files; presets have no --force)
+#                                     # overwrites customized files)
 #   SPECKIT_DEEP_MODEL=… SPECKIT_LIGHT_MODEL=… bash setup-speckit.sh
 #                                     # override the per-tier skill models (default opus/sonnet)
 
@@ -39,7 +42,7 @@ exec > >(tee "$LOG") 2>&1
 TEE_PID=$!
 trap 'exec >&- 2>&-; wait "$TEE_PID" 2>/dev/null || true' EXIT
 
-# Extensions/presets need a base spec-kit project (a .specify/ dir); without it
+# Extensions need a base spec-kit project (a .specify/ dir); without it
 # `specify extension add` fails with "Not a spec-kit project". If the base is
 # missing, lay it down first. Idempotent: skipped once .specify/ exists.
 #   --integration claude   this template targets Claude Code (.claude/, CLAUDE.md)
@@ -73,19 +76,6 @@ run_ext() {     # id  <add-args...>
   fi
 }
 
-run_preset() {  # id  <add-args...>   (preset add has no --force)
-  local id="$1"; shift
-  local out rc=0
-  out=$(printf 'y\n' | specify preset add "$@" 2>&1) || rc=$?
-  if [[ $rc -eq 0 ]]; then
-    echo "  ✓  $id"
-  elif echo "$out" | grep -q "already installed"; then
-    echo "  –  $id (already installed)"
-  else
-    echo "  ✗  $id"; echo "$out" | sed 's/^/      /'; FAILED+=("$id")
-  fi
-}
-
 gh_zip() { echo "https://github.com/$1/archive/refs/tags/$2.zip"; }
 
 echo
@@ -109,13 +99,8 @@ run_ext spectest   spectest   --from "$(gh_zip jigarkhwar/spec-kit-spectest  v1.
 run_ext changelog  changelog  --from "$(gh_zip jigarkhwar/spec-kit-changelog v1.2.0)"
 
 echo
-echo "==> Presets (--from github archive)"
-run_preset claude-ask-questions  claude-ask-questions \
-  --from "$(gh_zip 0xrafasec/spec-kit-preset-claude-ask-questions v1.0.0)"
-
-echo
 echo "==> Integrations (Claude Code default, Codex alongside)"
-# Spec Kit writes extension and preset skills into the default integration only
+# Spec Kit writes extension skills into the default integration only
 # (.claude/skills for Claude Code, .agents/skills for Codex). Each integration
 # takes a turn as the default so both get every skill, and Claude Code ends as
 # the default. A turn rewrites the skills it lays, so the model pins run after.
